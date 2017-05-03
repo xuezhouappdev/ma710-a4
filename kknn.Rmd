@@ -1,0 +1,71 @@
+---
+title: "kknn commands"
+author: "David Oury"
+date: "11 Apr 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The `caret` package makes available the `confusionMatrix` function
+([documentation](https://artax.karlin.mff.cuni.cz/r-help/library/caret/html/confusionMatrix.html).)
+The `kknn` package makes available the `kknn` function.
+The `e1071` package is required by the `caret` package.
+```{r message=FALSE}
+install.packages("kknn")
+install.packages("caret")
+install.packages("e1071")
+library(kknn)
+library(caret)
+library(e1071)
+
+options(dplyr.width=Inf) 
+```
+
+We use the `iris` dataset.
+```{r}
+Data <- iris
+head(Data, 10)
+dim(Data)
+```
+
+```{r}
+Sample   <- sample(1:150, 50)
+Sample
+testing  <- Data[ Sample, ]
+training <- Data[-Sample, ]
+dim(training)
+dim(testing)
+```
+
+Train the model on the `training` dataset. 
+The target variable is `Species`. 
+Look at all values for `k` up to 9.
+```{r}
+suppressWarnings(suppressMessages(library(kknn)))
+model <- train.kknn(Species ~ ., 
+                    data = training, 
+                    kmax = 9)
+model
+```
+
+Create predictions for the `testing` dataset (based on the model.)
+```{r}
+prediction <- predict(model, testing[, -5])
+prediction
+```
+
+Display details on the correctness of this prediction. 
+```{r}
+
+confusionMatrix(reference=testing[, 5], data=prediction)
+
+
+```
+
+```{r}
+plot(model)
+```
+

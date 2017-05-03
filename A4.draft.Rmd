@@ -1,0 +1,487 @@
+---
+title: "MA710 Assignment4 - Decision Tree Classification and K-nearest Neighbors Classification"
+author: "Xiang Li, Xue Zhou"
+date: "4/24/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#this if from the original RMD
+```
+
+```{r setup, include=FALSE, warning=FALSE, message = FALSE, eval=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+#Thisi is from the A3
+```
+
+# Table of Contents
+* 1 [Introduction](#Introduction) 
+* 2 [Data Preparation](#2)
+    * 2.1 [Load the data](#2.1)
+    * 2.2 [Testing and Training](#2.2)
+* 3 [Decision Tree Classification](#3)
+* 4 [k-Nearest Neighbour Classification](#4)
+* 5 [Conclusion](#conclusion)
+* 6 [Future Studies](#futurestudies)   
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+#desicion tree
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(RColorBrewer)
+
+library(party)
+library(partykit)
+
+
+
+library(caret)
+
+
+#missing values
+library(dplyr)
+
+
+
+#knn
+library(kknn)
+library(caret)
+library(e1071)
+
+options(dplyr.width=Inf) 
+
+```
+
+
+# 1 Introduction<a id="Introduction"></a>
+# 2 Data Preparation<a id="2"></a>
+## 2.1 Load the dataset 
+```{r}
+setwd("/Users/xuezhou/Desktop/ma710-a4")
+data_import = read.csv("data_clean.csv",
+                   header = TRUE, na.strings = 'NA')
+str(data_import)
+
+```
+
+
+```{r}
+#get rid of ID, university name and state columns, rename the rownames as the university ID. 
+  data.with.rownames <- data.frame(data_import[,-c(1:4)], row.names=data_import[,2])
+  str(data.with.rownames)
+  summary(data.with.rownames) # a lot of the missing values
+  
+data_nomissing <- na.omit(data.with.rownames)
+summary(data_nomissing)
+str(data_nomissing)  #4528 * 15
+
+```
+
+
+Missing values version:
+Two categorical variables have no missing values. just deal with the missing values in numeric. 
+```{r}
+
+ data.with.rownames[,-c(1,2)] %>%
+  mutate_each(funs(replace(.,which(is.na(.)),median(.,na.rm=TRUE)))) %>%
+    {.} ->data_num
+
+summary(data_num)
+str(data_num)
+  
+data_nomissing = cbind(data.with.rownames[,c(1,2)], data_num)
+summary(data_nomissing  )
+str(data_nomissing )
+
+```
+
+
+We will choose the factor variable ```Control_factor``` as the target variable. 
+```{r}
+
+```
+
+
+split the data set into traning and testing: 
+```{r}
+
+set.seed(2)
+
+# Store row numbers for training set: index_train
+index_train <- sample(1:nrow(data_nomissing), 2 / 3 * nrow(data_nomissing))
+
+# Create training set: data_training
+data_training <- data_nomissing[index_train, ]
+nrow(data_training)
+str(data_training)
+write.csv(data_training, file = "Data_training.csv")
+write.csv(data_training, file = "Data_training2.csv") #7793 
+
+# Create test set: data_testing
+data_testing <- data_nomissing[-index_train, ]
+nrow(data_testing )
+str(data_testing)
+
+write.csv(data_testing, file = "Data_testing.csv")
+write.csv(data_testing, file = "Data_testing2.csv") #7793 
+
+setwd("/Users/xuezhou/Desktop/ma710-a4")
+
+data_d = read.csv("Data_training.csv",
+                   header = TRUE, na.strings = 'NA')#includes the row.names, just for testing
+data_d2 = read.csv("Data_testing.csv",
+                   header = TRUE, na.strings = 'NA')
+
+#This is for all the data - mssing values are replaced with median 
+data_d = read.csv("Data_training2.csv",
+                   header = TRUE, na.strings = 'NA')#includes the row.names, just for testing
+data_d2 = read.csv("Data_testing2.csv",
+                   header = TRUE, na.strings = 'NA')
+
+data_training <- data.frame(data_d[,-1], row.names=data_d[,1])
+
+data_testing = data.frame(data_d2[,-1], row.names=data_d2[,1])
+
+str(data_training) #this is from the saved file 
+str(data_testing)
+
+
+```
+
+```{r}
+levels(data_training$Control_factor)
+
+table(data_training$Control_factor) 
+prop.table(table(data_training$Control_factor))#check the existence of unbalanced data problem, 1391 vs 718 vs 909
+
+levels(data_training$PREDDEG_factor)
+
+
+#over sampling
+data_balanced_over <- ovun.sample(cls ~ ., data = hacide.train, method = "over",N = 1960)$data
+table(data_balanced_over$cls)
+
+
+
+
+```
+
+```{r}
+original_tree <- rpart(Control_factor ~ ., method = "class",
+                          data = data_training,control = rpart.control(cp=0,minsplit = 0))
+
+# can change the control to try, cp defaul 0.05;  different results 
+set.seed(2)
+#candidate 1 
+original_tree <- rpart(Control_factor ~ ., method = "class",
+                          data = data_training,control = rpart.control(minsplit = 10, minbucket = 10, cp = 0.001))
+#candidate 2
+set.seed(2)
+original_tree <- rpart(Control_factor ~ ., method = "class",
+                          data = data_training,control = rpart.control(minsplit = 20, minbucket = 20, cp = 0.001))
+
+#candidate 3
+set.seed(2)
+original_tree <- rpart(Control_factor ~ ., method = "class",
+                          data = data_training,control = rpart.control(minsplit = 30, minbucket = 30, cp = 0.001))
+
+#candidate 4  BEST ONE, SIMPLE ONE
+set.seed(2)
+original_tree <- rpart(Control_factor ~ ., method = "class",
+                          data = data_training,control = rpart.control(minsplit = 30, minbucket = 30, cp = 0.003))
+
+
+print(original_tree)
+summary(original_tree)
+
+plot(original_tree)
+text(original_tree) 
+
+
+#1
+prp(original_tree)					# Will plot the tree
+prp(original_tree,varlen=3)  #will incur R session break down
+
+#2
+rpart.plot(original_tree)
+#3
+fancyRpartPlot(original_tree) #pretty one 
+
+
+printcp(original_tree) #display the results 
+plotcp(original_tree) #visualize the cross-validation results 
+summary(original_tree)
+
+0.25656 +0.011457
+0.25656 +0.011457
+```
+
+0.24403 +0.011219
+```{r}
+#display the cv results
+printcp(original_tree)
+plotcp(original_tree)
+
+summary(original_tree) #detailed summary
+```
+
+Prune the tree with complexity threshold
+```{r}
+
+bestcp <- original_tree$cptable[which.min(original_tree$cptable[,"xerror"]),"CP"]
+bestcp =0.0065632 #best one 
+
+
+tree_pruned <- prune(original_tree, cp = bestcp)
+
+
+plot(tree_pruned)
+fancyRpartPlot(tree_pruned)
+prp(tree_pruned, extra=1)
+prp(tree_pruned, extra=104)
+
+
+
+```
+
+accuracy of the model
+```{r}
+#testing error 
+pred_original <- predict(original_tree, newdata = data_testing,  type = "class")
+
+#training error
+pred_original_train <- predict(original_tree, newdata = data_training,  type = "class")
+
+
+#matrix table of the original tree
+conf_matrix_original = table(data_testing$Control_factor, pred_original)
+
+#matrix table of the original tree - train 
+conf_matrix_original_train = table(data_training$Control_factor, pred_original_train)
+
+conf_matrix_original 
+conf_matrix_original_train
+
+#accuracy
+acc_original<- sum(diag(conf_matrix_original)) / nrow(data_testing)
+acc_original
+
+acc_original_training<- sum(diag(conf_matrix_original_train))/nrow(data_training)
+acc_original_training
+
+#acc_origina2 = sum(data_testing$Control_factor==pred_original)/nrow(data_testing)
+#acc_origina2 
+
+
+#PRUNING TREE###############################################################
+
+#testing error - prune
+pred_prune <- predict(tree_pruned, newdata = data_testing,  type = "class")
+
+#training error - prune
+pred_prune_train <- predict(tree_pruned, newdata = data_training,  type = "class")
+
+#matrix table of the original tree
+conf_matrix_prune = table(data_testing$Control_factor, pred_prune)
+
+#matrix table of the original tree - train 
+conf_matrix_prune_train = table(data_training$Control_factor, pred_prune_train)
+
+
+conf_matrix_prune
+conf_matrix_prune_train
+
+
+
+
+#accuracy
+acc_prune<- sum(diag(conf_matrix_prune)) / nrow(data_testing)
+acc_prune
+
+acc_prune_training<- sum(diag(conf_matrix_prune_train)) /nrow(data_training)
+acc_prune_training
+
+```
+
+
+
+
+
+
+
+1. the tree is for prediction, but if we prune it. simpler but the accucaay goes down
+
+2. 2 class: 50%
+   3 class : 33%
+
+
+
+
+
+
+#knn ###################################################################################################
+
+
+```{r}
+setwd("/Users/xuezhou/Desktop/ma710-a4")
+data_k_d= read.csv("Data_training.csv",
+                   header = TRUE, na.strings = 'NA')#includes the row.names, just for testing
+data_k_d2 = read.csv("Data_testing.csv",
+                   header = TRUE, na.strings = 'NA')
+
+glimpse(data_k_d2 )
+glimpse(data_k_d)
+
+
+
+data_training_k <- data.frame(data_k_d[,-1])
+
+data_testing_k = data.frame(data_k_d2[,-1])
+
+
+###data prep. training:
+  # Create the dummy boolean variables using the model.matrix() function.
+  dummy_preddeg = model.matrix(~PREDDEG_factor-1, data_training_k)
+  dummy_control = model.matrix(~Control_factor-1, data_training_k)
+  
+   #rename the coloumn names for dummay variables to make them more readable.
+  colnames(dummy_preddeg) <- gsub("PREDDEG_factor","",colnames(dummy_preddeg))
+  colnames(dummy_control) <- gsub("Control_factor","",colnames(dummy_control))
+  
+   dummy_preddeg
+   dummy_control
+
+   #Combine the matrix back with the original dataframe.
+  data_combine_t= cbind(data_training_k, dummy_preddeg,dummy_control) 
+  data_combine_t
+  
+  #git rid of the factor coloumns which have been converted to the dummy variable.
+  data_ready = data_combine_t[,-c(1:2)]
+  data_ready
+  str(data_ready)
+  class(data_ready)
+  
+
+```
+
+#This part has been covered by function
+```{r}
+
+   data_testing_k = data.frame(data_k_d2[,-1]) 
+   glimpse(data_testing_k)
+
+  
+  dummy_preddeg = model.matrix(~PREDDEG_factor-1, data_testing_k )
+  dummy_control = model.matrix(~Control_factor-1, data_testing_k )
+  
+  dummy_preddeg 
+  dummy_control
+  
+   #rename the coloumn names for dummay variables to make them more readable.
+  colnames(dummy_preddeg) <- gsub("PREDDEG_factor","",colnames(dummy_preddeg))
+  colnames(dummy_control) <- gsub("Control_factor","",colnames(dummy_control))
+  
+ 
+   #Combine the matrix back with the original dataframe.
+  data_combine_t= cbind(data_testing_k, dummy_preddeg,dummy_control) 
+  data_combine_t
+  
+  #git rid of the factor coloumns which have been converted to the dummy variable.
+  data_ready2 = data_combine_t[,-c(1:2)]
+  glimpse(data_ready2)
+  data_ready2
+  str(data_ready)
+  class(data_ready)
+```
+
+
+```{r}
+
+  #the function used to conver two categorical variables into numeric variabels. 
+  convertNum = function(mydata) {
+    mydata = mydata[,-1]
+    dummy_preddeg = model.matrix(~PREDDEG_factor-1,mydata)
+   # dummy_control = model.matrix(~Control_factor-1, mydata)
+   
+    colnames(dummy_preddeg) <- gsub("PREDDEG_factor","",colnames(dummy_preddeg))
+   # colnames(dummy_control) <- gsub("Control_factor","",colnames(dummy_control))
+    
+    data_combine = cbind(mydata, dummy_preddeg) 
+    return (data.frame(data_combine[,-1]))  #get rid of the converted col PRED
+  }
+
+   data_knn_training = convertNum(data_k_d)
+   data_knn_testing = convertNum(data_k_d2)
+   
+   glimpse(data_knn_training)
+   glimpse(data_knn_testing)
+   
+   #add notclassified col to the testing dataset, 
+   data_knn_testing$NotClassified  =0
+   
+   #data_knn_testing  = cbind(data_knn_testing[,c(1:16)], data_knn_testing[20], data_knn_testing[,c(17:19)])
+   
+   #til now the training dataset and testing dataset are ready
+    glimpse(data_knn_training)
+    glimpse(data_knn_testing)
+   
+     
+```
+
+```{r}
+suppressWarnings(suppressMessages(library(kknn)))
+model <- train.kknn(Control_factor ~ ., 
+                    data = data_knn_training, 
+                    kmax = 9,
+                    scale = TRUE,
+                    kernel = c("triangular", "rectangular", "epanechnikov", "optimal"))
+model
+plot(model)
+
+prediction <- predict(model, data_knn_testing[, -1])
+prediction
+#Accuracy
+
+```
+
+
+```{r}
+#training error
+prediction_training <- predict(model, data_knn_training[, -1])
+confusionMatrix(reference=data_knn_training[, 1], data=prediction_training )
+CM_training <- table(data_knn_training[, 1], prediction_training)
+CM_training
+
+#testing error
+sum(diag(CM_training )) / nrow(data_knn_training)
+
+
+```
+
+
+```{r}
+#testing error
+confusionMatrix(reference=data_knn_testing[, 1], data=prediction)
+CM <- table(data_knn_testing[, 1], prediction)
+CM
+plot(model)
+
+nrow(data_knn_testing)
+
+#testing error
+sum(diag(CM )) / nrow(data_knn_testing)
+
+
+## For Test Data set - Accuracy prediction
+train.kknn=kknn(Control_factor~.,train=data_knn_training,test=data_knn_testing,k=10,distance=1,kernel="gaussian",ykernel=NULL,scale=TRUE,kknn.dist(learn=data_knn_training,valid=data_knn_testing,k=10,distance=1))
+## misclassification table
+fit=fitted(train.kknn)
+fit
+
+table(predict(train.kknn,data_knn_training),data_knn_training$Control_factor)
+pairs(train[,1:15],pch=train$subscribed,col=c("green","red")[(train$subscribed!=fit)+1])
+
+```

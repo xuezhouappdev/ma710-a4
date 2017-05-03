@@ -1,0 +1,72 @@
+---
+title: "rpart commands"
+author: "David Oury"
+date: "11 Apr 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(rpart)
+library(rpart.plot)
+```
+
+Fit a decision tree model to the `kyphosis` data set with the `Kyphosis` target variable.
+```{r}
+fit <- rpart(Kyphosis ~ Age + Number + Start, 
+                        data = kyphosis,
+                        control = rpart.control())
+```
+We used the default paramters.
+
+Display the tree that models the given data and target variable, and which satisfies the default regularization parameters.
+```{r}
+print(fit)
+```
+Notice, on each numbered line:
+
+- Inequality
+- Number of rows in this node
+- Number of incorrectly classified rows in this node
+- Predicted class (class with majority of rows)
+- Proportion of rows in each class 
+- Asterisk indicates a leaf node
+
+Display the complexity parameter table:
+```{r}
+printcp(fit)
+```
+
+The following control parameters `cp=0, minbucket=0` do not constrain the tree:
+```{r}
+fit <- rpart(Kyphosis ~ Age + Number + Start, 
+                        data = kyphosis,
+                        control = rpart.control(cp=0, minbucket=0))
+print(fit)
+```
+Notice that all leaf nodes are pure. 
+
+Following is the complexity table for the model:
+```{r}
+printcp(fit)
+```
+The `xerror` column contains the cross-validation error for that split.
+We want the complexity threshold corresponding to the first line with the smallest `xerror` values.
+The following command retrieves this value from the table. 
+```{r}
+bestcp <- fit$cptable[which.min(fit$cptable[,"xerror"]),
+                                 "CP"]
+```
+
+Now prune the tree using this "best" complexity parameter.
+```{r}
+fit.pruned <- prune(fit, cp = bestcp)
+```
+
+```{r}
+prp(fit.pruned)
+```
