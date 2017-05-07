@@ -142,7 +142,7 @@ We use Grid Search to help up find the best ```cp``` and ```minsplit``` that can
 ```{r}
 
 # prepare training scheme
-control <- trainControl(method="repeatedcv", number=5)
+control <- trainControl(method="repeatedcv", number=5,repeats = 2)
 # design the parameter tuning grid
 grid <- expand.grid(cp = c(0.001,0.003,0.01))
 
@@ -150,13 +150,17 @@ grid <- expand.grid(cp = c(0.001,0.003,0.01))
 #minsplit =30
 set.seed(42)
 
-model1 <- train(Control_factor~., data=data_training, method="rpart", metric = 'Accuracy', trControl=control, tuneGrid=grid, minsplit=20)
+model1 <- train(Control_factor~., data=data_training, method="rpart", trControl=control, tuneGrid=grid, minsplit=20)
+model1
+model1$finalModel
 
-
+#WHY THE 2, 3 DOES NOT HAVE
+model2 <- train(Control_factor~., data=data_training, metric = 'Accuracy', method="rpart", trControl=control, tuneGrid=grid, minsplit=50)
 model2 <- train(Control_factor~., data=data_training, method="rpart", trControl=control, tuneGrid=grid, minsplit=50)
 
+model2$results
 
-model3 <- train(Control_factor~., data=data_training, method="rpart", trControl=control, tuneGrid=grid, minsplit=80)
+model3 <- train(Control_factor~., data=data_training, metric = 'Accuracy', method="rpart", trControl=control, tuneGrid=grid, minsplit=80)
 ```
 
 
@@ -179,7 +183,7 @@ We can see that the model with minsplit = 80 and cp = 0.003 gives the best resul
 tree1 <- rpart(Control_factor ~ ., method = "class",
                           data = data_training,control = rpart.control(cp=0.003,minsplit = 80))
 
-tree1$cptable
+
 ```
 
 We can see that nsplit = 13 has the lowest cross-validation error, after that the error starts to increase. So we set this as a cut-off point.
@@ -187,18 +191,27 @@ We can see that nsplit = 13 has the lowest cross-validation error, after that th
 ```{r}
 bestcp <- tree1$cptable[which.min(tree1$cptable[,"xerror"]),
                                  "CP"]
-
+bestcp
 tree1.pruned <- prune(tree1, cp = bestcp)
+tree1.pruned$control
 prp(tree1.pruned)
+
+
 ```
 
 The tree is the best model we use for prediction. But we can see from the plot that this is a large tree with many nodes. Let's try setting the ```maxdepth``` so that we will be able to visualize the top levels of the tree.
 
 ```{r}
+
+
 tree2 <- rpart(Control_factor ~ ., method = "class",
                           data = data_training,control = rpart.control(cp=0.001,minsplit = 40, maxdepth = 3))
 
-fancyRpartPlot(tree2, sub = 'Decision Tree Plot') #pretty one 
+##### ????
+tree2 <- rpart(Control_factor ~ ., method = "class",
+                          data = data_training,control = rpart.control(cp=0.003,minsplit = 80, maxdepth = 3,maxcompete = 4,maxsurrogate = 5,usesurrogate = 2,surrogatestyle = 0,xval=10))
+
+fancyRpartPlot(tree2, sub = 'Decision Tree Plot', palettes=c("Greys", "Oranges","Blues")) #pretty one 
 ```
 
 From the plot, we can tell Predominant Degree, Net Price (Net living cost), Financially Independent rate and Three-year Repayment rate are important variables to classify Control type. For each Control, we can create a profile for them.
@@ -238,9 +251,12 @@ pred_prune_test <- predict(tree1.pruned, newdata = data_testing,  type = "class"
 
 #matrix table of the original tree - train 
 conf_matrix_train = table(data_training$Control_factor, pred_prune_train)
+confusionMatrix(pred_prune_train,data_training$Control_factor)
 
 #matrix table of the original tree
 conf_matrix_test = table(data_testing$Control_factor, pred_prune_test)
+confusionMatrix(pred_prune_test,data_testing$Control_factor)
+
 ```
 
 Let's take a look at the confusion matrices.
