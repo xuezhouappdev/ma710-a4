@@ -265,7 +265,7 @@ acc_prune
 ```
 
 We see that the performance on training set is slightly better than testing set, which makes sense. Overall, the model performance is good.
-In the following part, we are going to use another model - K-nearest Neighbour model to classify the Control. Then we will compare the performance of two models to see which model performs better in terms of classfiying the Control type.
+In the following part, we are going to use another model - K-nearest Neighbour model. Then we will compare the performance of two models to see which model performs better in terms of classfiying the Control type.
 
 
 
@@ -273,148 +273,110 @@ In the following part, we are going to use another model - K-nearest Neighbour m
 
 # 4. k-Nearest Neighbour Classification<a id="4"></a>
 
+First of all, we read the training and testing data we create in last part.
+
 ```{r}
 data_k_d= read.csv("Data_training.csv",
                    header = TRUE, na.strings = 'NA')#includes the row.names, just for testing
 data_k_d2 = read.csv("Data_testing.csv",
                    header = TRUE, na.strings = 'NA')
 
-glimpse(data_k_d2 )
-glimpse(data_k_d)
+str(data_k_d2 )
+str(data_k_d)
+```
 
+After taking a look at the data, we notice that first column is useless so we remove it.
+
+```{r}
 data_training_k <- data.frame(data_k_d[,-1])
 
 data_testing_k = data.frame(data_k_d2[,-1])
-
-###data prep. training:
-  # Create the dummy boolean variables using the model.matrix() function.
-dummy_preddeg = model.matrix(~PREDDEG_factor-1, data_training_k)
-dummy_control = model.matrix(~Control_factor-1, data_training_k)
-  
-#rename the coloumn names for dummay variables to make them more readable.
-colnames(dummy_preddeg) <- gsub("PREDDEG_factor","",colnames(dummy_preddeg))
-colnames(dummy_control) <- gsub("Control_factor","",colnames(dummy_control))
-  
-dummy_preddeg
-dummy_control
-
-#Combine the matrix back with the original dataframe.
-data_combine_t= cbind(data_training_k, dummy_preddeg,dummy_control) 
-data_combine_t
-  
-#git rid of the factor coloumns which have been converted to the dummy variable.
-data_ready = data_combine_t[,-c(1:2)]
-data_ready
-str(data_ready)
-class(data_ready)
 ```
 
-#This part has been covered by function
-```{r}
-
-data_testing_k = data.frame(data_k_d2[,-1]) 
-glimpse(data_testing_k)
-
-  
-dummy_preddeg = model.matrix(~PREDDEG_factor-1, data_testing_k )
-dummy_control = model.matrix(~Control_factor-1, data_testing_k )
-  
-dummy_preddeg 
-dummy_control
-  
-   #rename the coloumn names for dummay variables to make them more readable.
-colnames(dummy_preddeg) <- gsub("PREDDEG_factor","",colnames(dummy_preddeg))
-colnames(dummy_control) <- gsub("Control_factor","",colnames(dummy_control))
-  
- 
-   #Combine the matrix back with the original dataframe.
-data_combine_t= cbind(data_testing_k, dummy_preddeg,dummy_control) 
-data_combine_t
-  
-  #git rid of the factor coloumns which have been converted to the dummy variable.
-data_ready2 = data_combine_t[,-c(1:2)]
-glimpse(data_ready2)
-data_ready2
-str(data_ready)
-class(data_ready)
-```
+Then we would like to encode numerical variables into dummies since we need calculate distance between each pair of instances when using KNN. In order to calculate the distance, we need all variables to be numerical. We create a function to automate the entire preparation process. The function encodes the Predominant Degree into dummies, renames the new columns and finally drop the original Prefominat Degree variables.
 
 
 ```{r}
-
-#the function used to conver two categorical variables into numeric variabels. 
 convertNum = function(mydata) {
     mydata = mydata[,-1]
     dummy_preddeg = model.matrix(~PREDDEG_factor-1,mydata)
-   # dummy_control = model.matrix(~Control_factor-1, mydata)
    
     colnames(dummy_preddeg) <- gsub("PREDDEG_factor","",colnames(dummy_preddeg))
-   # colnames(dummy_control) <- gsub("Control_factor","",colnames(dummy_control))
     
     data_combine = cbind(mydata, dummy_preddeg) 
     return (data.frame(data_combine[,-1]))  #get rid of the converted col PRED
-  }
+}
+```
+
+After the function is created, we apply the function to training and testing data to perform data transformation.
+
+```{r}
 
 data_knn_training = convertNum(data_k_d)
 data_knn_testing = convertNum(data_k_d2)
-   
-glimpse(data_knn_training)
-glimpse(data_knn_testing)
-   
-#add notclassified col to the testing dataset, 
-data_knn_testing$NotClassified  =0
-   
-#data_knn_testing  = cbind(data_knn_testing[,c(1:16)], data_knn_testing[20], data_knn_testing[,c(17:19)])
-   
-#til now the training dataset and testing dataset are ready
-glimpse(data_knn_training)
-glimpse(data_knn_testing)
 ```
 
+Notice that the Predominat Degree variable in testing data doesn't have a NotClasified level, so we want to add this columns and set all cells to zero so that the model built on training data can be applied on testing data diretly later.
+
+```{r} 
+data_knn_testing$NotClassified  =0
+```
+
+Next, we use KNN algorithm to build a model. We set kmax = 9 so the number of nearest neighbor from 1 to 9 will be considered. We also would like to find out which kernal is the best among ```triangular```,```rectangular```,```epanechnikov```,```optimal```.    
+
 ```{r}
-suppressWarnings(suppressMessages(library(kknn)))
 model <- train.kknn(Control_factor ~ ., 
                     data = data_knn_training, 
                     kmax = 9,
                     scale = TRUE,
                     kernel = c("triangular", "rectangular", "epanechnikov", "optimal"))
+
 model
+```
+
+From the result we see that when we choose k=4, the model generates the best result - 7.5% misclassification rate. Also, the best kernel is rectangular kernel.
+
+Then we create a plot to show the performance of model with each kernel for different k values. 
+
+```{r}
 plot(model)
 
 prediction <- predict(model, data_knn_testing[, -1])
-prediction
-#Accuracy
-
 ```
 
+The red triangle indicates the best result and we also see that a optimal kernel with k = 5,6,8 also produce good results.
+
+After the model is built, we need to evaluate how the model performs on both training and testing data.
 
 ```{r}
 #training error
 prediction_training <- predict(model, data_knn_training[, -1])
 confusionMatrix(reference=data_knn_training[, 1], data=prediction_training )
-CM_training <- table(data_knn_training[, 1], prediction_training)
-CM_training
-
-#training error
-sum(diag(CM_training )) / nrow(data_knn_training)
-
-
 ```
 
+```confusionMatrix```shows the confusion matrix for classification and the model performance for each class. The overall accuracy of the model is 95%, which indicates a very good performance. Looking at each class, we can also tell the model performance on each class is also desirable while the sensitivity is slighly lower. A lower sensitivity rate suggests that the model is relative worse at identifying TRUE private non-profit schools.
+
+Then we evaluate the model on testing data.
 
 ```{r}
-#testing error
 confusionMatrix(reference=data_knn_testing[, 1], data=prediction)
-CM <- table(data_knn_testing[, 1], prediction)
-CM
-plot(model)
-
-nrow(data_knn_testing)
-
-#testing error
-sum(diag(CM )) / nrow(data_knn_testing)
-
 ```
 
+We see that the overall accuracy of the model on testing set is 92%, slighly worse than on the training set. Looking at each class, we also see the sensitivity rate for private non-profit schools is worse than other metrics, which suggests that we may want to collect some new features that can help identify the TRUE private non-profit schools.
+
+
 #5 Conclusion]<a id="conclusion"></a>
+
+In the above analysis, we use Decision Tree Model and K-nearest Neighbour Model to classify the Control variables. Two models we build both have a very good performance, which suggests that the available features are able to distinguish one type of school of each other very effectively.
+
+Two models have their own strengths and weakness. Decision Tree Model is very easy to interprete. From the tree plot we created, we know that .......... are important factors to classify Control type.
+
+On the other hand, Decision Tree model performances less well than KNN model. Therefore, it's better to use KNN model for the purpose of prediction.
+
+To sum up, we can easily distinguish the profile of institutions of each Control type. For prediction, KNN model is a better choice. For presentation or interpretation, Decision Tree is easier to understand.
+
 #6 Future Studies]<a id="futurestudies"></a>
+
+One question we would like to address in the future is to find a better algorithms to perform parameters tunning. There are many parameters for Decision Tree Model and the Grid Search algorithm in ```caret``` can only allow us to tune  ```cp``` parameter. In Python Grid Search allows us to test a combination of many parameters of the Decision Tree model at the same time, so it would be greate if we can find a counterpart in R.
+
+Also, we would like to try out other model including Random Forest Tree, Neural Network, Support Vector Machine, etc to see if any other model performs better than two models we built in this analysis. 
