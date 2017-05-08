@@ -5,14 +5,8 @@ date: "4/24/2017"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-#this if from the original RMD
-```
-
 ```{r setup, include=FALSE, warning=FALSE, message = FALSE, eval=FALSE, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
-#Thisi is from the A3
 ```
 
 # Table of Contents
@@ -25,89 +19,67 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
 * 5 [Conclusion](#conclusion)
 * 6 [Future Studies](#futurestudies)   
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+Load the required package.
 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 #desicion tree
 library(rpart)
 library(rpart.plot)
 library(rattle)
 library(RColorBrewer)
-
 library(party)
 library(partykit)
-
-
-
 library(caret)
-
 
 #missing values
 library(dplyr)
-
-
 
 #knn
 library(kknn)
 library(caret)
 library(e1071)
-
 options(dplyr.width=Inf) 
-
 ```
 
 
 # 1 Introduction<a id="Introduction"></a>
+
+In this analysis, we are going to use Decision Tree Model and K-nearest Neighbours Model to classify the Control variable (which has three levels: private for-profit, private non-profit and public ) in the College Scorecard Data Set. Since we can get the control type info of a school by simply googling, the goal of the analysis is to profile the institutions of each control type rather than to predict which control type a school  belongs to.
+
+
 # 2 Data Preparation<a id="2"></a>
-## 2.1 Load the dataset 
+
+Prior to the analysis, we need to prepare the data. Getting a clean data set ready for Decision Tree Modeling and KNN Analysis requires us to remove unnecessary columns, deal with missing values, and split data into training and testing set.
+
+## 2.1 Load the dataset<a id="2.1"></a>
+
+We load the data set and take a look at the structure of data.
+
 ```{r}
-setwd("/Users/xuezhou/Desktop/ma710-a4")
 data_import = read.csv("data_clean.csv",
                    header = TRUE, na.strings = 'NA')
 str(data_import)
-
 ```
 
+First of all, we remove useless columns and rename the row names as University ID. Then we drop all the instances with missing values.
 
 ```{r}
 #get rid of ID, university name and state columns, rename the rownames as the university ID. 
-  data.with.rownames <- data.frame(data_import[,-c(1:4)], row.names=data_import[,2])
-  str(data.with.rownames)
-  summary(data.with.rownames) # a lot of the missing values
-  
+data.with.rownames <- data.frame(data_import[,-c(1:4)], row.names=data_import[,2])
+
 data_nomissing <- na.omit(data.with.rownames)
-summary(data_nomissing)
+
 str(data_nomissing)  #4528 * 15
-
 ```
 
+Now the data set has 4528 rows and 15 variables.
 
-Missing values version:
-Two categorical variables have no missing values. just deal with the missing values in numeric. 
+
+## 2.2 Testing and Training<a id="2.2"></a>
+
+After obtaining a clean data set, let's split the complete data into training and testing set. The size of training and testing set has a ratio 2/3:1/3. Also, we export the training and testing set to two separate csv files for easier access in the future.
+
 ```{r}
-
- data.with.rownames[,-c(1,2)] %>%
-  mutate_each(funs(replace(.,which(is.na(.)),median(.,na.rm=TRUE)))) %>%
-    {.} ->data_num
-
-summary(data_num)
-str(data_num)
-  
-data_nomissing = cbind(data.with.rownames[,c(1,2)], data_num)
-summary(data_nomissing  )
-str(data_nomissing )
-
-```
-
-
-We will choose the factor variable ```Control_factor``` as the target variable. 
-```{r}
-
-```
-
-
-split the data set into traning and testing: 
-```{r}
-
 set.seed(2)
 
 # Store row numbers for training set: index_train
@@ -115,218 +87,193 @@ index_train <- sample(1:nrow(data_nomissing), 2 / 3 * nrow(data_nomissing))
 
 # Create training set: data_training
 data_training <- data_nomissing[index_train, ]
-nrow(data_training)
-str(data_training)
-write.csv(data_training, file = "Data_training.csv")
-write.csv(data_training, file = "Data_training2.csv") #7793 
+
+write.csv(data_training, file = "Data_training.csv") 
 
 # Create test set: data_testing
 data_testing <- data_nomissing[-index_train, ]
-nrow(data_testing )
-str(data_testing)
 
 write.csv(data_testing, file = "Data_testing.csv")
-write.csv(data_testing, file = "Data_testing2.csv") #7793 
+```
 
-setwd("/Users/xuezhou/Desktop/ma710-a4")
+So now we can simply read the training and testing set without running preparation code every time.
+
+```{r}
 
 data_d = read.csv("Data_training.csv",
                    header = TRUE, na.strings = 'NA')#includes the row.names, just for testing
 data_d2 = read.csv("Data_testing.csv",
                    header = TRUE, na.strings = 'NA')
 
-#This is for all the data - mssing values are replaced with median 
-data_d = read.csv("Data_training2.csv",
-                   header = TRUE, na.strings = 'NA')#includes the row.names, just for testing
-data_d2 = read.csv("Data_testing2.csv",
-                   header = TRUE, na.strings = 'NA')
 
 data_training <- data.frame(data_d[,-1], row.names=data_d[,1])
 
-data_testing = data.frame(data_d2[,-1], row.names=data_d2[,1])
-
-str(data_training) #this is from the saved file 
-str(data_testing)
-
-
+data_testing <- data.frame(data_d2[,-1], row.names=data_d2[,1])
 ```
+
+We see that there are 3018 rows and 15 variables in the training set. There are 1510 rows and 15 variables in the testing set.
+
+Let's take a look at the response variable to see if the data is biased. If a class of the response variable is extremely predomoninat, the prediction of the model would always tend to be that class, which may influence the predictive power of the model. 
 
 ```{r}
 levels(data_training$Control_factor)
-
 table(data_training$Control_factor) 
 prop.table(table(data_training$Control_factor))#check the existence of unbalanced data problem, 1391 vs 718 vs 909
-
-levels(data_training$PREDDEG_factor)
-
-
-#over sampling
-data_balanced_over <- ovun.sample(cls ~ ., data = hacide.train, method = "over",N = 1960)$data
-table(data_balanced_over$cls)
-
-
-
-
 ```
 
+From the table above, we see that 46% of schools belong to private for-profit institutions, 23.2% of schools are private non-profit and 30.8% of schools are public. As we can tell, the data set doesn't have a serious bias problem.
+
+#3. Decision Tree Classification<a id="3"></a>
+
+Next, we start building a decision tree to classify the Control variable. 
+
 ```{r}
+set.seed(2)
 original_tree <- rpart(Control_factor ~ ., method = "class",
                           data = data_training,control = rpart.control(cp=0,minsplit = 0))
 
 # can change the control to try, cp defaul 0.05;  different results 
-set.seed(2)
-#candidate 1 
-original_tree <- rpart(Control_factor ~ ., method = "class",
-                          data = data_training,control = rpart.control(minsplit = 10, minbucket = 10, cp = 0.001))
-#candidate 2
-set.seed(2)
-original_tree <- rpart(Control_factor ~ ., method = "class",
-                          data = data_training,control = rpart.control(minsplit = 20, minbucket = 20, cp = 0.001))
-
-#candidate 3
-set.seed(2)
-original_tree <- rpart(Control_factor ~ ., method = "class",
-                          data = data_training,control = rpart.control(minsplit = 30, minbucket = 30, cp = 0.001))
-
-#candidate 4  BEST ONE, SIMPLE ONE
-set.seed(2)
-original_tree <- rpart(Control_factor ~ ., method = "class",
-                          data = data_training,control = rpart.control(minsplit = 30, minbucket = 30, cp = 0.003))
-
-
-print(original_tree)
-summary(original_tree)
-
-plot(original_tree)
-text(original_tree) 
-
-
-#1
-prp(original_tree)					# Will plot the tree
-prp(original_tree,varlen=3)  #will incur R session break down
-
-#2
-rpart.plot(original_tree)
-#3
-fancyRpartPlot(original_tree) #pretty one 
-
-
-printcp(original_tree) #display the results 
-plotcp(original_tree) #visualize the cross-validation results 
-summary(original_tree)
-
-0.25656 +0.011457
-0.25656 +0.011457
 ```
 
-0.24403 +0.011219
-```{r}
-#display the cv results
-printcp(original_tree)
-plotcp(original_tree)
+The resulting tree is very large and subject to overfitting problem. So we want to alleviate the overfitting problem by controlling some parameters of the model.
 
-summary(original_tree) #detailed summary
+We use Grid Search to help up find the best ```cp``` and ```minsplit``` that can yield the highest accuracy. For some reason, the implementation of Grid Search in R is only able to look for best ```cp``` parameter. Therefore we find the best `cp` number for each of a set of three ```minsplit``` numbers, and then compare accuracy of these three models to get the best parameter combination.
+
+```{r}
+
+# prepare training scheme
+control <- trainControl(method="repeatedcv", number=5)
+# design the parameter tuning grid
+grid <- expand.grid(cp = c(0.001,0.003,0.01))
+
+# train the model
+#minsplit =30
+set.seed(42)
+
+model1 <- train(Control_factor~., data=data_training, method="rpart", metric = 'Accuracy', trControl=control, tuneGrid=grid, minsplit=20)
+
+
+model2 <- train(Control_factor~., data=data_training, method="rpart", trControl=control, tuneGrid=grid, minsplit=50)
+
+
+model3 <- train(Control_factor~., data=data_training, method="rpart", trControl=control, tuneGrid=grid, minsplit=80)
 ```
 
-Prune the tree with complexity threshold
+
+Since we've found the best cp value for minsplit = 20, minsplit = 50 and minsplit = 80, let's compare the accuracy of these three combination and choose the best parameters.
+
 ```{r}
+#best for minsplit = 20
+model1$results[which.max(model1$results[,c('Accuracy')]),c('cp','Accuracy')]
 
-bestcp <- original_tree$cptable[which.min(original_tree$cptable[,"xerror"]),"CP"]
-bestcp =0.0065632 #best one 
+#best for minsplit =50
+model2$results[which.max(model2$results[,c('Accuracy')]),c('cp','Accuracy')]
 
-
-tree_pruned <- prune(original_tree, cp = bestcp)
-
-
-plot(tree_pruned)
-fancyRpartPlot(tree_pruned)
-prp(tree_pruned, extra=1)
-prp(tree_pruned, extra=104)
-
-
-
+#best for minsplit = 80
+model3$results[which.max(model3$results[,c('Accuracy')]),c('cp','Accuracy')]
 ```
 
-accuracy of the model
-```{r}
-#testing error 
-pred_original <- predict(original_tree, newdata = data_testing,  type = "class")
+We can see that the model with minsplit = 80 and cp = 0.003 gives the best result. After finding the best parameters, we also would like to prune the tree by looking at cross-validation error.
 
+```{r}
+tree1 <- rpart(Control_factor ~ ., method = "class",
+                          data = data_training,control = rpart.control(cp=0.003,minsplit = 80))
+
+tree1$cptable
+```
+
+We can see that nsplit = 13 has the lowest cross-validation error, after that the error starts to increase. So we set this as a cut-off point.
+
+```{r}
+bestcp <- tree1$cptable[which.min(tree1$cptable[,"xerror"]),
+                                 "CP"]
+
+tree1.pruned <- prune(tree1, cp = bestcp)
+prp(tree1.pruned)
+```
+
+The tree is the best model we use for prediction. But we can see from the plot that this is a large tree with many nodes. Let's try setting the ```maxdepth``` so that we will be able to visualize the top levels of the tree.
+
+```{r}
+tree2 <- rpart(Control_factor ~ ., method = "class",
+                          data = data_training,control = rpart.control(cp=0.001,minsplit = 40, maxdepth = 3))
+
+fancyRpartPlot(tree2, sub = 'Decision Tree Plot') #pretty one 
+```
+
+From the plot, we can tell Predominant Degree, Net Price (Net living cost), Financially Independent rate and Three-year Repayment rate are important variables to classify Control type. For each Control, we can create a profile for them.
+
+Private for-profit: Predominant Degree is associate degree or certificate degree an with a Net Price greater than $9,949   *or*
+Predominant Degree is bachelor degree or graduate degree with a Three-year Repayment Rate less than 36% and percentage of financially indenpendent student more than 61%.
+
+Public School:Predominant Degree is associate or certificate with net price less than $9,949  *or*
+
+Predominant Degree is bachelor degree or graduate degree
+with three-year repayment rate over 36% and net price less than $15,000 
+
+
+Private non-profit:
+Predominant Degree is bachelor or graduate degree with a Three-year Repayment rate greater than 36% and Net Price greater than $15,000 *or*
+
+Predominant Degree is bachelor or graduate degree, Three-year Repayment rate less than 36%, percentage of financially independent students less than 61%.
+
+
+Then we see how the cross-validation error decreases as the size of tree increases.
+
+```{r}
+plotcp(tree2) #visualize the cross-validation results 
+```
+
+Plotting the size of tree against cross-validation error, we see that that as the size of tree increases, the cross-validation error decrease and level off after depth is greater than 7.
+
+After having an understanding of how the tree look like, we also want to evaluate how well the tree performs in terms of prediction. The following code compare the predicted values against the true values on both training data and testing data.
+
+The following code generates the confusion matrix for training and testing data.
+
+```{r}
 #training error
-pred_original_train <- predict(original_tree, newdata = data_training,  type = "class")
-
-
-#matrix table of the original tree
-conf_matrix_original = table(data_testing$Control_factor, pred_original)
+pred_prune_train <- predict(tree1.pruned, newdata = data_training,  type = "class")
+#testing error 
+pred_prune_test <- predict(tree1.pruned, newdata = data_testing,  type = "class")
 
 #matrix table of the original tree - train 
-conf_matrix_original_train = table(data_training$Control_factor, pred_original_train)
-
-conf_matrix_original 
-conf_matrix_original_train
-
-#accuracy
-acc_original<- sum(diag(conf_matrix_original)) / nrow(data_testing)
-acc_original
-
-acc_original_training<- sum(diag(conf_matrix_original_train))/nrow(data_training)
-acc_original_training
-
-#acc_origina2 = sum(data_testing$Control_factor==pred_original)/nrow(data_testing)
-#acc_origina2 
-
-
-#PRUNING TREE###############################################################
-
-#testing error - prune
-pred_prune <- predict(tree_pruned, newdata = data_testing,  type = "class")
-
-#training error - prune
-pred_prune_train <- predict(tree_pruned, newdata = data_training,  type = "class")
+conf_matrix_train = table(data_training$Control_factor, pred_prune_train)
 
 #matrix table of the original tree
-conf_matrix_prune = table(data_testing$Control_factor, pred_prune)
+conf_matrix_test = table(data_testing$Control_factor, pred_prune_test)
+```
 
-#matrix table of the original tree - train 
-conf_matrix_prune_train = table(data_training$Control_factor, pred_prune_train)
+Let's take a look at the confusion matrices.
 
+```{r}
+conf_matrix_train
+conf_matrix_test
+```
 
-conf_matrix_prune
-conf_matrix_prune_train
+The diagonal of the confusion matrix indicates the instances that are correctly classified. We see that for training and testing data, most instances are classified correctly.
 
+We also calculate the overall accuracy.
 
-
-
-#accuracy
-acc_prune<- sum(diag(conf_matrix_prune)) / nrow(data_testing)
-acc_prune
-
-acc_prune_training<- sum(diag(conf_matrix_prune_train)) /nrow(data_training)
+```{r}
+#for training data
+acc_prune_training<- sum(diag(conf_matrix_train))/nrow(data_training)
 acc_prune_training
 
+#for testing data
+acc_prune<- sum(diag(conf_matrix_test)) / nrow(data_testing)
+acc_prune
 ```
 
+We see that the performance on training set is slightly better than testing set, which makes sense. Overall, the model performance is good.
+In the following part, we are going to use another model - K-nearest Neighbour model to classify the Control. Then we will compare the performance of two models to see which model performs better in terms of classfiying the Control type.
 
 
 
 
 
-
-1. the tree is for prediction, but if we prune it. simpler but the accucaay goes down
-
-2. 2 class: 50%
-   3 class : 33%
-
-
-
-
-
-
-#knn ###################################################################################################
-
+# 4. k-Nearest Neighbour Classification<a id="4"></a>
 
 ```{r}
-setwd("/Users/xuezhou/Desktop/ma710-a4")
 data_k_d= read.csv("Data_training.csv",
                    header = TRUE, na.strings = 'NA')#includes the row.names, just for testing
 data_k_d2 = read.csv("Data_testing.csv",
@@ -335,73 +282,68 @@ data_k_d2 = read.csv("Data_testing.csv",
 glimpse(data_k_d2 )
 glimpse(data_k_d)
 
-
-
 data_training_k <- data.frame(data_k_d[,-1])
 
 data_testing_k = data.frame(data_k_d2[,-1])
 
-
 ###data prep. training:
   # Create the dummy boolean variables using the model.matrix() function.
-  dummy_preddeg = model.matrix(~PREDDEG_factor-1, data_training_k)
-  dummy_control = model.matrix(~Control_factor-1, data_training_k)
+dummy_preddeg = model.matrix(~PREDDEG_factor-1, data_training_k)
+dummy_control = model.matrix(~Control_factor-1, data_training_k)
   
-   #rename the coloumn names for dummay variables to make them more readable.
-  colnames(dummy_preddeg) <- gsub("PREDDEG_factor","",colnames(dummy_preddeg))
-  colnames(dummy_control) <- gsub("Control_factor","",colnames(dummy_control))
+#rename the coloumn names for dummay variables to make them more readable.
+colnames(dummy_preddeg) <- gsub("PREDDEG_factor","",colnames(dummy_preddeg))
+colnames(dummy_control) <- gsub("Control_factor","",colnames(dummy_control))
   
-   dummy_preddeg
-   dummy_control
+dummy_preddeg
+dummy_control
 
-   #Combine the matrix back with the original dataframe.
-  data_combine_t= cbind(data_training_k, dummy_preddeg,dummy_control) 
-  data_combine_t
+#Combine the matrix back with the original dataframe.
+data_combine_t= cbind(data_training_k, dummy_preddeg,dummy_control) 
+data_combine_t
   
-  #git rid of the factor coloumns which have been converted to the dummy variable.
-  data_ready = data_combine_t[,-c(1:2)]
-  data_ready
-  str(data_ready)
-  class(data_ready)
-  
-
+#git rid of the factor coloumns which have been converted to the dummy variable.
+data_ready = data_combine_t[,-c(1:2)]
+data_ready
+str(data_ready)
+class(data_ready)
 ```
 
 #This part has been covered by function
 ```{r}
 
-   data_testing_k = data.frame(data_k_d2[,-1]) 
-   glimpse(data_testing_k)
+data_testing_k = data.frame(data_k_d2[,-1]) 
+glimpse(data_testing_k)
 
   
-  dummy_preddeg = model.matrix(~PREDDEG_factor-1, data_testing_k )
-  dummy_control = model.matrix(~Control_factor-1, data_testing_k )
+dummy_preddeg = model.matrix(~PREDDEG_factor-1, data_testing_k )
+dummy_control = model.matrix(~Control_factor-1, data_testing_k )
   
-  dummy_preddeg 
-  dummy_control
+dummy_preddeg 
+dummy_control
   
    #rename the coloumn names for dummay variables to make them more readable.
-  colnames(dummy_preddeg) <- gsub("PREDDEG_factor","",colnames(dummy_preddeg))
-  colnames(dummy_control) <- gsub("Control_factor","",colnames(dummy_control))
+colnames(dummy_preddeg) <- gsub("PREDDEG_factor","",colnames(dummy_preddeg))
+colnames(dummy_control) <- gsub("Control_factor","",colnames(dummy_control))
   
  
    #Combine the matrix back with the original dataframe.
-  data_combine_t= cbind(data_testing_k, dummy_preddeg,dummy_control) 
-  data_combine_t
+data_combine_t= cbind(data_testing_k, dummy_preddeg,dummy_control) 
+data_combine_t
   
   #git rid of the factor coloumns which have been converted to the dummy variable.
-  data_ready2 = data_combine_t[,-c(1:2)]
-  glimpse(data_ready2)
-  data_ready2
-  str(data_ready)
-  class(data_ready)
+data_ready2 = data_combine_t[,-c(1:2)]
+glimpse(data_ready2)
+data_ready2
+str(data_ready)
+class(data_ready)
 ```
 
 
 ```{r}
 
-  #the function used to conver two categorical variables into numeric variabels. 
-  convertNum = function(mydata) {
+#the function used to conver two categorical variables into numeric variabels. 
+convertNum = function(mydata) {
     mydata = mydata[,-1]
     dummy_preddeg = model.matrix(~PREDDEG_factor-1,mydata)
    # dummy_control = model.matrix(~Control_factor-1, mydata)
@@ -413,22 +355,20 @@ data_testing_k = data.frame(data_k_d2[,-1])
     return (data.frame(data_combine[,-1]))  #get rid of the converted col PRED
   }
 
-   data_knn_training = convertNum(data_k_d)
-   data_knn_testing = convertNum(data_k_d2)
+data_knn_training = convertNum(data_k_d)
+data_knn_testing = convertNum(data_k_d2)
    
-   glimpse(data_knn_training)
-   glimpse(data_knn_testing)
+glimpse(data_knn_training)
+glimpse(data_knn_testing)
    
-   #add notclassified col to the testing dataset, 
-   data_knn_testing$NotClassified  =0
+#add notclassified col to the testing dataset, 
+data_knn_testing$NotClassified  =0
    
-   #data_knn_testing  = cbind(data_knn_testing[,c(1:16)], data_knn_testing[20], data_knn_testing[,c(17:19)])
+#data_knn_testing  = cbind(data_knn_testing[,c(1:16)], data_knn_testing[20], data_knn_testing[,c(17:19)])
    
-   #til now the training dataset and testing dataset are ready
-    glimpse(data_knn_training)
-    glimpse(data_knn_testing)
-   
-     
+#til now the training dataset and testing dataset are ready
+glimpse(data_knn_training)
+glimpse(data_knn_testing)
 ```
 
 ```{r}
@@ -455,7 +395,7 @@ confusionMatrix(reference=data_knn_training[, 1], data=prediction_training )
 CM_training <- table(data_knn_training[, 1], prediction_training)
 CM_training
 
-#testing error
+#training error
 sum(diag(CM_training )) / nrow(data_knn_training)
 
 
@@ -474,14 +414,7 @@ nrow(data_knn_testing)
 #testing error
 sum(diag(CM )) / nrow(data_knn_testing)
 
-
-## For Test Data set - Accuracy prediction
-train.kknn=kknn(Control_factor~.,train=data_knn_training,test=data_knn_testing,k=10,distance=1,kernel="gaussian",ykernel=NULL,scale=TRUE,kknn.dist(learn=data_knn_training,valid=data_knn_testing,k=10,distance=1))
-## misclassification table
-fit=fitted(train.kknn)
-fit
-
-table(predict(train.kknn,data_knn_training),data_knn_training$Control_factor)
-pairs(train[,1:15],pch=train$subscribed,col=c("green","red")[(train$subscribed!=fit)+1])
-
 ```
+
+#5 Conclusion]<a id="conclusion"></a>
+#6 Future Studies]<a id="futurestudies"></a>
