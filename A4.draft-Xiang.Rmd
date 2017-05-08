@@ -62,6 +62,7 @@ str(data_import)
 The original data set has 7793 observations and 19 variables. 
 
 
+
 First of all, we removed useless columns and renamed the row names as University ID. Then we dropped all the instances with missing values.
 
 ```{r}
@@ -74,6 +75,7 @@ str(data_nomissing)  #4528 * 15
 ```
 
 The new data set ```data_nomissing``` has 4528 rows and 15 variables.
+
 
 
 ## 2.2 Testing and Training<a id="2.2"></a>
@@ -100,6 +102,7 @@ write.csv(data_testing, file = "Data_testing.csv")
 The file ```Data_testing.csv``` and ```Data_training.csv``` are ready for further references. 
 
 
+
 With the code block below, we started decision tree analysis by retrieving the training and testing data.
 
 ```{r}
@@ -120,6 +123,7 @@ data_testing <- data.frame(data_d2[,-1], row.names=data_d2[,1])
 There are 3018 rows and 15 variables in the training set, and 1510 rows and 15 variables in the testing set.
 
 
+
 Before implementing the decision tree, it is necessary to look at the frequency of the response variable ```Control_factor``` to see if there exists an unbalanced data problem. If a class of the response variable is extremely predominate, the prediction of the model would always tend to be that class, which may influence the predictive power of the model. 
 
 ```{r}
@@ -129,6 +133,7 @@ prop.table(table(data_training$Control_factor))#check the existence of unbalance
 ```
 
 From the table above, we see that 46.0% of schools belong to private for-profit institutions, 23.2% of schools are private non-profit and 30.8% of schools are public. As we can tell, the data set doesn't have a serious unbalanced data problem.
+
 
 
 # 3. Decision Tree Classification<a id="3"></a>
@@ -145,6 +150,7 @@ plot(original_tree)
 ```
 
 Based on the tree plot, the original tree is very large and messy, which is subject to an overfitting problem and may lead to poor generalization to unseen data. So we want to alleviate the overfitting problem by adjusting some parameters of the model.
+
 
 
 We used **Grid Search** to help up find the best ```cp``` and ```minsplit``` that can yield the highest model accuracy. ```cp``` parameter helps to adjust model complexity and ```minsplit``` determines the minimum number of observations that must exist in a node, in order for a split to be attempted. 
@@ -187,6 +193,7 @@ model3
 With the above code block, the ```model1``` object lists the Accuracy values for three levels of **0.001**, **0.003**, **0.010**, given the ```minsplit``` is 30;  the ```model2``` object lists the Accuracy values for three levels of **0.001**, **0.003**, **0.010**, given the ```minsplit``` is 50;  the ```model3``` object lists the Accuracy values for three levels of **0.001**, **0.003**, **0.010**, given the ```minsplit``` is 80; 
 
 
+
 Then we selected the parameter combination which lead to the highest Accuracy value for each CP value.
 
 ```{r}
@@ -203,6 +210,7 @@ model3$results[which.max(model3$results[,c('Accuracy')]),c('cp','Accuracy')]
 Based on the output, we can see that the model with minsplit = 50 and cp = 0.001 gives the highest model accuracy: 0.8855756. 
 
 
+
 Then we rebuilt the tree with the control parameter: ```cp = 0.001 ``` and ```minsplit = 50```. A tree plot was also plotted with ```fancyRpartPlot``` function.
 
 ```{r}
@@ -215,6 +223,7 @@ fancyRpartPlot(tree_tuned)
 ```
 
 Based on the tree plot, the new tree has a more reasonable size than the original tree. However, the new tree is still complicated, which may contain overfitting issues. We used the cross validation error to prune back the tree to avoid overfitting the data. 
+
 
 
 The ```printcp``` function allows us to select a tree size that minimizes the cross-validated error.  After the tree size is determined, we can prune the tree with the corresponding **cp** value and generate a new tree with ```prune``` function. 
@@ -234,6 +243,7 @@ fancyRpartPlot(tree.pruned)
 From the CP table, we can see that split = 13 yields the lowest cross-validation error 0.22931,  the corresponding CP value is 0.0026569, and the pruned tree is saved in ```tree.prunned```. Based on the tree plot, the ```tree.prunned``` has 18 terminal nodes, which is still too large to interpret and visualize. 
 
 
+
 Then we used the ```maxdepth``` parameter to adjust the tree size, limiting the tree level to only 3. 
 
 ```{r}
@@ -251,6 +261,7 @@ fancyRpartPlot(tree.pruned.limited, sub = 'Decision Tree Plot', palettes=c("Grey
 Based on the tree plot, the final tree model has only 8 terminal nodes, which is in a reasonable size. After having an understanding of how the tree look like, we also want to evaluate how well the tree performs in terms of the predictive accuracy. The following sections compared the values predicted from the final model with the true values for both training data and testing data.
 
 
+
 We used ```tree.pruned.limited``` model to generate predictions on the training set and check the model accuracy with a confusion matrix.
 
 ```{r}
@@ -265,6 +276,7 @@ confusionMatrix(train_preds, data_training$Control_factor)
 The diagonal of the Confusion Matrix indicates the instances that are correctly classified in the training data set. We see that for training data set, 2596 instances are classified correctly, and the model has an accuracy of 0.8602 on the training data set. 
 
 
+
 As it is usual for the predictive model to perform well on the data set used to create it, Let's use the model to make predictions on the test data set to see how well it performs on the unseen data. 
 
 ```{r}
@@ -276,6 +288,7 @@ confusionMatrix(test_preds, data_testing$Control_factor)
 ```
 
 We see that for the testing data set, 1278 instances are classified correctly, and the model has an accuracy of 0.8464 on the training data set. The model has a slightly better predictive power on the training data set than the testing data set, which is within our expectation. As a conclusion, the model performs very well on both training data and testing data, and has a reasonable tree size. Thus the ```tree.pruned.limited``` is considered as the final decision tree model. 
+
 
 
 With the following code block, we interpreted the final model by plotting the final tree and requesting the summary statistics. 
@@ -362,6 +375,7 @@ data_testing_k = data.frame(data_k_d2[,-1])
 Accordingly, ```data_training_k``` and ```data_testing_k``` are the resulting data sets. 
 
 
+
 Then we encoded the factor variables into dummy variables for calculating the distance metrics between each pair of instances when implementing KNN. In our data set, only one factor variable ```PREDDEG_factor``` (Predominant Degree) needs to be converted. We created a function ```convertNum()``` to automate the entire conversion process. 
 
 ```{r}
@@ -406,6 +420,7 @@ model #display the summary
 From the result we see that the when k=4, the model generates the best result - 7.5% classifications rate. Also, the best kernel is **rectangular kernel**, which is also can be concluded from the plot. Moreover, the plot also indicates that a optimal kernel with k = 5,6,8 can also generate a model with low misclassification rates. 
 
 
+
 After the model is built, we need to evaluate how the model performs on both training and testing data. With the ```confusionMatrix``` function, we can get 
 the confusion matrix for classification and the model performance for each class.
 
@@ -417,6 +432,7 @@ confusionMatrix(reference=data_knn_training[, 1], data=prediction_training )
 ```
 
 The overall accuracy of the model is 95%, which indicates that the model has a very good performance on the training data set. Looking at the Sensitivity and Specificity for each class, we can also tell the model has a good prediction power given the high Sensitivity value and high Specificity value. 
+
 
 
 Then we predict the model on the testing data set. 
