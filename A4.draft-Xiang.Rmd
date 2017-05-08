@@ -118,7 +118,7 @@ data_testing <- data.frame(data_d2[,-1], row.names=data_d2[,1])
 
 There are 3018 rows and 15 variables in the training set, and 1510 rows and 15 variables in the testing set.
 
-Before implementing the decision tree, it is necessary to look at the frequency of the response variable ```Control_factor`` to see if there exists an unbalanced data problem. If a class of the response variable is extremely predominate, the prediction of the model would always tend to be that class, which may influence the predictive power of the model. 
+Before implementing the decision tree, it is necessary to look at the frequency of the response variable ```Control_factor``` to see if there exists an unbalanced data problem. If a class of the response variable is extremely predominate, the prediction of the model would always tend to be that class, which may influence the predictive power of the model. 
 
 ```{r}
 
@@ -128,7 +128,7 @@ prop.table(table(data_training$Control_factor))#check the existence of unbalance
 
 From the table above, we see that 46.0% of schools belong to private for-profit institutions, 23.2% of schools are private non-profit and 30.8% of schools are public. As we can tell, the data set doesn't have a serious unbalanced data problem.
 
-#3. Decision Tree Classification<a id="3"></a>
+# 3. Decision Tree Classification<a id="3"></a>
 
 We started to grow a full tree without any constrains to classify the ```Control_factor``` variable. We also plot a simple version of classification tree with the ```plot``` function.
 
@@ -290,28 +290,38 @@ As seen from the plot, in each node shows:
  3. The percentage of observations in this node
  
 Below are the 8 rules concluded from the final tree model: 
+
 *Rule 1*: 
+
 if an school has Percentage of students who are financially independent >= 0.59, average net price for TITLE IV institutions of both public and private >= 10752.5, Median family income in real 2015 dollars < 24511.41, then this school is classified as the control type of **Private For-profit**
         
 *Rule 2*: 
+
 if an school has Percentage of students who are financially independent >= 0.59, average net price for TITLE IV institutions of both public and private >=10752.5, Median income ten years after entry < 21400, then this school is classified as the control type of **Private For-profit**
         
 *Rule 3*: 
+
 if an school has Percentage of students who are financially independent < 0.59, average net price for TITLE IV institutions of both public and private >=14558, Percentage of students submitting 2 or more than 2 applications < 0.49, then this school is classified as the control type of **Private For-profit**
         
 *Rule 4*: 
+
 if an school has Percentage of students who are financially independent < 0.59, average net price for TITLE IV institutions of both public and private < 14558, Median income ten years after entry < 24350, then this school is classified as the control type of **Private For-profit**
 
 *Rule 5*: 
+
 if an school has  Percentage of students who are financially independent >= 0.59, average net price for TITLE IV institutions of both public and private >= 10752.5, Median family income in real 2015 dollars >= 24511.41, then this school is classified as the control type of **Private Non-profit**          
 
 *Rule 6*: 
+
 if an school has  Percentage of students who are financially independent < 0.59, average net price for TITLE IV institutions of both public and private >=14558, Percentage of students submitting 2 or more than 2 applications >= 0.49, then this school is classified as the control type of **Private Non-profit**
 
 *Rule 7*: 
+
 if an school has  Percentage of students who are financially independent >= 0.59, average net price for TITLE IV institutions of both public and private < 10752.5, Median family income in real 2015 dollars >= 24511.41,then this school is classified as the control type of **Public**  
       
-*Rule 8*: if an school has  Percentage of students who are financially independent < 0.59, average net price for TITLE IV institutions of both public and private < 14558, Median income ten years after entry >= 24350, then this school is classified as the control type of **Public**
+*Rule 8*: 
+
+if an school has  Percentage of students who are financially independent < 0.59, average net price for TITLE IV institutions of both public and private < 14558, Median income ten years after entry >= 24350, then this school is classified as the control type of **Public**
 
 Based on the rules generated from the decision tree model, we can create a profile for each control type as below. 
 
