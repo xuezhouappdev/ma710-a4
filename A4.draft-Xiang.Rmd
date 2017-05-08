@@ -61,6 +61,7 @@ str(data_import)
 
 The original data set has 7793 observations and 19 variables. 
 
+
 First of all, we removed useless columns and renamed the row names as University ID. Then we dropped all the instances with missing values.
 
 ```{r}
@@ -118,6 +119,7 @@ data_testing <- data.frame(data_d2[,-1], row.names=data_d2[,1])
 
 There are 3018 rows and 15 variables in the training set, and 1510 rows and 15 variables in the testing set.
 
+
 Before implementing the decision tree, it is necessary to look at the frequency of the response variable ```Control_factor``` to see if there exists an unbalanced data problem. If a class of the response variable is extremely predominate, the prediction of the model would always tend to be that class, which may influence the predictive power of the model. 
 
 ```{r}
@@ -127,6 +129,7 @@ prop.table(table(data_training$Control_factor))#check the existence of unbalance
 ```
 
 From the table above, we see that 46.0% of schools belong to private for-profit institutions, 23.2% of schools are private non-profit and 30.8% of schools are public. As we can tell, the data set doesn't have a serious unbalanced data problem.
+
 
 # 3. Decision Tree Classification<a id="3"></a>
 
@@ -142,6 +145,7 @@ plot(original_tree)
 ```
 
 Based on the tree plot, the original tree is very large and messy, which is subject to an overfitting problem and may lead to poor generalization to unseen data. So we want to alleviate the overfitting problem by adjusting some parameters of the model.
+
 
 We used **Grid Search** to help up find the best ```cp``` and ```minsplit``` that can yield the highest model accuracy. ```cp``` parameter helps to adjust model complexity and ```minsplit``` determines the minimum number of observations that must exist in a node, in order for a split to be attempted. 
 
@@ -181,6 +185,7 @@ model3
 ```
 
 With the above code block, the ```model1``` object lists the Accuracy values for three levels of **0.001**, **0.003**, **0.010**, given the ```minsplit``` is 30;  the ```model2``` object lists the Accuracy values for three levels of **0.001**, **0.003**, **0.010**, given the ```minsplit``` is 50;  the ```model3``` object lists the Accuracy values for three levels of **0.001**, **0.003**, **0.010**, given the ```minsplit``` is 80; 
+
 
 Then we selected the parameter combination which lead to the highest Accuracy value for each CP value.
 
@@ -427,7 +432,7 @@ We see that the overall accuracy of the model on testing set is 92%, slightly lo
 The Sensitivity and Specificity for each class is lower than training data set, but is still falling into the acceptable range. As a conclusion, the KNN final model performs well on both training and testing data. 
 
 
-#5 Conclusions <a id="conclusion"></a>
+# 5. Conclusions <a id="conclusion"></a>
 
 In the above analysis, we used Decision Tree model and K-nearest Neighbor model to classify the Control Type (```control_factor```) variable. 
 
@@ -439,7 +444,7 @@ Additionally, Decision Tree is very easy to interpret while KNN outperforms deci
 
 To sum up, the decision tree model outperforms KNN in terms of the classification, while KNN is a better choice when used for prediction. Moreover, decision tree is easier to understand, especially for interpretation and presentation. 
 
-#6 Future Studies <a id="futurestudies"></a>
+# 6. Future Studies <a id="futurestudies"></a>
 
 One question we would like to address in the future is to find a better algorithms to perform parameters tuning. Although there are many tunable parameters in decision tree analysis, the Grid Search algorithm in ```caret``` package can only allow us to tune  the ```cp``` parameter. In Python, Grid Search allows us to test a combination of many parameters at the same time when building the decision tree, thus it would be helpful if we can find a counterpart in R.
 
