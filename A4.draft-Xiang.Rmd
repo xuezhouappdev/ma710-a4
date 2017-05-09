@@ -12,14 +12,14 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
 # Table of Contents
 * 1 [Introduction](#Introduction) 
 * 2 [Data Preparation](#2)
-    * 2.1 [Load the data](#2.1)
-    * 2.2 [Testing and Training](#2.2)
+    * 2.1 [Load the Data](#2.1)
+    * 2.2 [Testing and Training Data Set](#2.2)
 * 3 [Decision Tree Classification](#3)
 * 4 [k-Nearest Neighbour Classification](#4)
 * 5 [Conclusion](#conclusion)
 * 6 [Future Studies](#futurestudies)   
 
-Load the required package.
+First we loaded the required packages as the code block below. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 #desicion tree
@@ -30,10 +30,7 @@ library(RColorBrewer)
 library(party)
 library(partykit)
 library(caret)
-
-#missing values
-library(dplyr)
-
+library(dplyr) #missing values
 #knn
 library(kknn)
 library(caret)
@@ -44,12 +41,12 @@ options(dplyr.width=Inf)
 
 # 1 Introduction<a id="Introduction"></a>
 
-In this analysis, we are going to use Decision Tree Model and K-nearest Neighbours Model to classify the Control variable (which has three levels: private for-profit, private non-profit and public ) in the College Scorecard Data Set. Since we can get the control type info of a school by simply googling, the goal of the analysis is to profile the institutions of each control type rather than to predict which control type a school  belongs to.
+In this analysis, we are going to use **Decision Tree** model and **K-nearest Neighbours** model to classify the ```Control_factor``` variable (which has three levels: private for-profit, private non-profit and public ) in the College Scorecard Data Set. Since we can get the control type information of a school by simply goggling, the goal of the analysis is to profile the institutions of each control type rather than to predict which control type a school belongs to.
 
 
 # 2 Data Preparation<a id="2"></a>
 
-Prior to the analysis, we need to prepare the data. Getting a clean data set ready for Decision Tree Modeling and KNN Analysis requires us to remove unnecessary columns, deal with missing values, and split data into training and testing set.
+Prior to the analysis, we need to prepare the data. Getting a clean data set ready for Decision Tree Modeling and KNN Analysis requires us to remove unnecessary columns, deal with missing values, and split data into training and testing sets.
 
 ## 2.1 Load the dataset<a id="2.1"></a>
 
@@ -61,7 +58,9 @@ data_import = read.csv("data_clean.csv",
 str(data_import)
 ```
 
-First of all, we remove useless columns and rename the row names as University ID. Then we drop all the instances with missing values.
+The original data set has 7793 observations and 19 variables. 
+
+First of all, we removed useless columns and renamed the row names as University ID. Then we dropped all the instances with missing values.
 
 ```{r}
 #get rid of ID, university name and state columns, rename the rownames as the university ID. 
@@ -72,15 +71,15 @@ data_nomissing <- na.omit(data.with.rownames)
 str(data_nomissing)  #4528 * 15
 ```
 
-Now the data set has 4528 rows and 15 variables.
+The new data set ```data_nomissing``` has 4528 rows and 15 variables.
 
 
 ## 2.2 Testing and Training<a id="2.2"></a>
 
-After obtaining a clean data set, let's split the complete data into training and testing set. The size of training and testing set has a ratio 2/3:1/3. Also, we export the training and testing set to two separate csv files for easier access in the future.
+After obtaining a clean data set, let's split the complete data into training and testing sets. The ratio of training sample size to testing sample size is **2:1**. Also, we exported the training and testing set to two separate csv files for easier access in the future.
 
 ```{r}
-set.seed(2)
+set.seed(2) #reproduce the results
 
 # Store row numbers for training set: index_train
 index_train <- sample(1:nrow(data_nomissing), 2 / 3 * nrow(data_nomissing))
@@ -96,7 +95,9 @@ data_testing <- data_nomissing[-index_train, ]
 write.csv(data_testing, file = "Data_testing.csv")
 ```
 
-So now we can simply read the training and testing set without running preparation code every time.
+The file ```Data_testing.csv``` and ```Data_training.csv``` are ready for further references. 
+
+We imported the ```Data_testing.csv``` and ```Data_training.csv```.
 
 ```{r}
 
@@ -107,60 +108,80 @@ data_d2 = read.csv("Data_testing.csv",
 
 
 data_training <- data.frame(data_d[,-1], row.names=data_d[,1])
+str(data_training)
+summary(data_training)
 
 data_testing <- data.frame(data_d2[,-1], row.names=data_d2[,1])
 ```
 
-We see that there are 3018 rows and 15 variables in the training set. There are 1510 rows and 15 variables in the testing set.
+There are 3018 rows and 15 variables in the training set, and 1510 rows and 15 variables in the testing set.
 
-Let's take a look at the response variable to see if the data is biased. If a class of the response variable is extremely predomoninat, the prediction of the model would always tend to be that class, which may influence the predictive power of the model. 
+Before implementing the decision tree, it is necessary to look at the frequency of the response variable ```Control_factor``` to see if there exists an unbalanced data problem. If a class of the response variable is extremely predominate, the prediction of the model would always tend to be that class, which may influence the predictive power of the model. 
 
 ```{r}
-levels(data_training$Control_factor)
 table(data_training$Control_factor) 
-prop.table(table(data_training$Control_factor))#check the existence of unbalanced data problem, 1391 vs 718 vs 909
+prop.table(table(data_training$Control_factor))#check the existence of unbalanced data problem, 1387 vs 700 vs 931
 ```
 
-From the table above, we see that 46% of schools belong to private for-profit institutions, 23.2% of schools are private non-profit and 30.8% of schools are public. As we can tell, the data set doesn't have a serious bias problem.
+From the table above, we see that 46.0% of schools belong to private for-profit institutions, 23.2% of schools are private non-profit and 30.8% of schools are public. As we can tell, the data set doesn't have a serious unbalanced data problem.
 
-#3. Decision Tree Classification<a id="3"></a>
 
-Next, we start building a decision tree to classify the Control variable. 
+# 3. Decision Tree Classification<a id="3"></a>
+
+We started to grow a full tree without any constraint to classify the ```Control_factor``` variable. We also plot a simple version of classification tree with the ```plot``` function.
 
 ```{r}
 set.seed(2)
 original_tree <- rpart(Control_factor ~ ., method = "class",
                           data = data_training,control = rpart.control(cp=0,minsplit = 0))
 
-# can change the control to try, cp defaul 0.05;  different results 
+plot(original_tree)
 ```
 
-The resulting tree is very large and subject to overfitting problem. So we want to alleviate the overfitting problem by controlling some parameters of the model.
+Based on the tree plot, the original tree is very large, which is subject to an overfitting problem and may lead to a poor generalization to unseen data. So we want to alleviate the overfitting problem by adjusting some parameters of the model.
 
-We use Grid Search to help up find the best ```cp``` and ```minsplit``` that can yield the highest accuracy. For some reason, the implementation of Grid Search in R is only able to look for best ```cp``` parameter. Therefore we find the best `cp` number for each of a set of three ```minsplit``` numbers, and then compare accuracy of these three models to get the best parameter combination.
+
+We used **Grid Search** to help up find the best ```cp``` and ```minsplit``` that can yield the highest model accuracy. ```cp``` parameter helps to adjust model complexity and ```minsplit``` determines the minimum number of observations that must exist in a node, in order for a split to be attempted. 
+
+Considering that the Grid Search for ```rpart```  is only able to tune the ```cp``` parameter, we would like to find the best `cp` value for a set of ```minsplit``` values: **30**, **50** and **80**, and then compare accuracy of these three models to get the best parameter combination.
 
 ```{r}
+set.seed(42) 
+# prepare training scheme, create a control object to control how the train function creates the model
+control <- trainControl(method="repeatedcv", number=5, repeats = 3)
 
-# prepare training scheme
-control <- trainControl(method="repeatedcv", number=5)
-# design the parameter tuning grid
+# design the parameter tuning grid 
 grid <- expand.grid(cp = c(0.001,0.003,0.01))
 
+set.seed(42) 
+
 # train the model
-#minsplit =30
-set.seed(42)
+model1 <- train(Control_factor~., data=data_training, method="rpart", 
+                trControl=control, 
+                tuneGrid=grid,
+                minsplit=30)  #additional parameter
+model1 
 
-model1 <- train(Control_factor~., data=data_training, method="rpart", metric = 'Accuracy', trControl=control, tuneGrid=grid, minsplit=20)
+model2 <- train(Control_factor~., data=data_training, method="rpart", 
+                
+                trControl=control, 
+                tuneGrid=grid,
+                 minsplit=50)
+model2
+
+model3 <- train(Control_factor~., data=data_training, method="rpart", 
+                trControl=control, 
+                tuneGrid=grid, 
+                minsplit=80)
+model3
 
 
-model2 <- train(Control_factor~., data=data_training, method="rpart", trControl=control, tuneGrid=grid, minsplit=50)
-
-
-model3 <- train(Control_factor~., data=data_training, method="rpart", trControl=control, tuneGrid=grid, minsplit=80)
 ```
 
+With the above code block, the ```model1``` object lists the Accuracy values for three levels of **0.001**, **0.003**, **0.010**, given the ```minsplit``` is 30;  the ```model2``` object lists the Accuracy values for three levels of **0.001**, **0.003**, **0.010**, given the ```minsplit``` is 50;  the ```model3``` object lists the Accuracy values for three levels of **0.001**, **0.003**, **0.010**, given the ```minsplit``` is 80. 
 
-Since we've found the best cp value for minsplit = 20, minsplit = 50 and minsplit = 80, let's compare the accuracy of these three combination and choose the best parameters.
+
+Then we selected the parameter combinations which lead to the highest accuracy value for each minsplit value.
 
 ```{r}
 #best for minsplit = 20
@@ -173,128 +194,167 @@ model2$results[which.max(model2$results[,c('Accuracy')]),c('cp','Accuracy')]
 model3$results[which.max(model3$results[,c('Accuracy')]),c('cp','Accuracy')]
 ```
 
-We can see that the model with minsplit = 80 and cp = 0.003 gives the best result. After finding the best parameters, we also would like to prune the tree by looking at cross-validation error.
+Based on the output, we can see that the model with minsplit = 50 and cp = 0.001 gives the highest model accuracy: 0.8855756. 
+
+
+Then we rebuilt the tree with the control parameters: ```cp = 0.001 ``` and ```minsplit = 50```. A tree plot was also plotted with ```fancyRpartPlot``` function.
 
 ```{r}
-tree1 <- rpart(Control_factor ~ ., method = "class",
-                          data = data_training,control = rpart.control(cp=0.003,minsplit = 80))
+tree_tuned <- rpart(Control_factor ~ ., method = "class",
+                          data = data_training,control = rpart.control(
+                          cp=0.001,
+                          minsplit = 50))
+fancyRpartPlot(tree_tuned)
 
-tree1$cptable
 ```
 
-We can see that nsplit = 13 has the lowest cross-validation error, after that the error starts to increase. So we set this as a cut-off point.
+Based on the tree plot, the new tree has a more reasonable size than the original tree. However, the new tree is still complicated, which may still have an overfitting issue. We used the cross validation error to prune the tree to avoid overfitting the data. 
+
+
+The ```printcp``` function allows us to select a tree size that minimizes the cross-validated error.  After the tree size is determined, we can prune the tree with the corresponding **cp** value and generate a new tree with ```prune``` function. 
 
 ```{r}
-bestcp <- tree1$cptable[which.min(tree1$cptable[,"xerror"]),
+
+printcp(tree_tuned)
+bestcp <- tree_tuned$cptable[which.min(tree_tuned$cptable[,"xerror"]),
                                  "CP"]
+tree.pruned <- prune(tree_tuned, cp = bestcp)
 
-tree1.pruned <- prune(tree1, cp = bestcp)
-prp(tree1.pruned)
+fancyRpartPlot(tree.pruned)
 ```
 
-The tree is the best model we use for prediction. But we can see from the plot that this is a large tree with many nodes. Let's try setting the ```maxdepth``` so that we will be able to visualize the top levels of the tree.
+From the CP table, we can see that split = 13 yields the lowest cross-validation error 0.22931,  the corresponding CP value is 0.0026569, and the pruned tree is saved in ```tree.prunned```. Based on the tree plot, the ```tree.prunned``` has 18 terminal nodes, which is still too large to interpret and visualize. 
+
+
+Then we used the ```maxdepth``` parameter to adjust the tree size, limiting the tree level to only 3. 
 
 ```{r}
-tree2 <- rpart(Control_factor ~ ., method = "class",
-                          data = data_training,control = rpart.control(cp=0.001,minsplit = 40, maxdepth = 3))
+tree.pruned.limited <- rpart(Control_factor ~ ., method = "class",
+                          data = data_training,control = rpart.control(
+                          cp=0.001,
+                          minsplit = 50, 
+                          maxdepth = 3))
 
-fancyRpartPlot(tree2, sub = 'Decision Tree Plot') #pretty one 
+fancyRpartPlot(tree.pruned.limited, sub = 'Decision Tree Plot', palettes=c("Greys", "Oranges","Blues"))
 ```
 
-From the plot, we can tell Predominant Degree, Net Price (Net living cost), Financially Independent rate and Three-year Repayment rate are important variables to classify Control type. For each Control, we can create a profile for them.
-
-Private for-profit: Predominant Degree is associate degree or certificate degree an with a Net Price greater than $9,949   *or*
-Predominant Degree is bachelor degree or graduate degree with a Three-year Repayment Rate less than 36% and percentage of financially indenpendent student more than 61%.
-
-Public School:Predominant Degree is associate or certificate with net price less than $9,949  *or*
-
-Predominant Degree is bachelor degree or graduate degree
-with three-year repayment rate over 36% and net price less than $15,000 
+Based on the tree plot, the final tree model has only 8 terminal nodes, which is in a reasonable size. After having an understanding of how the tree look like, we also want to evaluate how well the tree performs in terms of the predictive accuracy. The following sections compared the predicted values from the final model with the true values for both training data and testing data.
 
 
-Private non-profit:
-Predominant Degree is bachelor or graduate degree with a Three-year Repayment rate greater than 36% and Net Price greater than $15,000 *or*
-
-Predominant Degree is bachelor or graduate degree, Three-year Repayment rate less than 36%, percentage of financially independent students less than 61%.
-
-
-Then we see how the cross-validation error decreases as the size of tree increases.
+We used ```tree.pruned.limited``` model to generate predictions on the training set and check the model accuracy with a confusion matrix.
 
 ```{r}
-plotcp(tree2) #visualize the cross-validation results 
+train_preds = predict (tree.pruned.limited,
+                       newdata = data_training,
+                       type="class")
+confusionMatrix(train_preds, data_training$Control_factor)
 ```
 
-Plotting the size of tree against cross-validation error, we see that that as the size of tree increases, the cross-validation error decrease and level off after depth is greater than 7.
+The diagonal of the Confusion Matrix indicates the instances that are correctly classified in the training data set. We see that for training data set, 2596 instances are classified correctly, and the model has an accuracy of 0.8602 on the training data set. 
 
-After having an understanding of how the tree look like, we also want to evaluate how well the tree performs in terms of prediction. The following code compare the predicted values against the true values on both training data and testing data.
 
-The following code generates the confusion matrix for training and testing data.
+As it is usual for the predictive model to perform well on the data set used to create it, let's use the model to make predictions on the test data set to see how well it performs on the unseen data. 
 
 ```{r}
-#training error
-pred_prune_train <- predict(tree1.pruned, newdata = data_training,  type = "class")
-#testing error 
-pred_prune_test <- predict(tree1.pruned, newdata = data_testing,  type = "class")
+test_preds = predict (tree.pruned.limited,
+                       newdata = data_testing,
+                       type="class")
+confusionMatrix(test_preds, data_testing$Control_factor)
 
-#matrix table of the original tree - train 
-conf_matrix_train = table(data_training$Control_factor, pred_prune_train)
-
-#matrix table of the original tree
-conf_matrix_test = table(data_testing$Control_factor, pred_prune_test)
 ```
 
-Let's take a look at the confusion matrices.
+We see that for the testing data set, 1278 instances are classified correctly, and the model has an accuracy of 0.8464 on the training data set. The model has a slightly better predictive power on the training data set than the testing data set, which is within our expectation. As a conclusion, the model performs very well on both training data and testing data, and has a reasonable tree size. Thus the ```tree.pruned.limited``` is considered as the final decision tree model. 
+
+
+
+With the following code block, we interpreted the final model by plotting the final tree and requesting the summary statistics. 
 
 ```{r}
-conf_matrix_train
-conf_matrix_test
+
+rpart.plot(tree.pruned.limited, sub = 'Decision Tree Plot')
+
+print(tree.pruned.limited)
 ```
 
-The diagonal of the confusion matrix indicates the instances that are correctly classified. We see that for training and testing data, most instances are classified correctly.
+From the plot, we can tell ```DEP_STAT_PCT_IND```(Percentage of students who are financially independent) is the most important variable to predict the control type of a school, ```NPT4_COMBINE```(average net price for TITLE IV institutions of both public and private.), ```MD_FAMINC ```(Median family income in real 2015 dollars), ``` MD_EARN_WNE_P10```(Median income ten years after entry) and ``` APPL_SCH_PCT_GE2 ```(Percentage of students submitting 2 or more than 2 applications) are also the important variables. 
 
-We also calculate the overall accuracy.
+As seen from the plot, in each node shows:
+ 1. The predicted class (Private For-profit, Private Nonprofit and Public) 
+ 2. The predicted probability of each class
+ 3. The percentage of observations in this node
+ 
+Below are the 8 rules concluded from the final tree model: 
 
-```{r}
-#for training data
-acc_prune_training<- sum(diag(conf_matrix_train))/nrow(data_training)
-acc_prune_training
+**For private for-profit schools:**
 
-#for testing data
-acc_prune<- sum(diag(conf_matrix_test)) / nrow(data_testing)
-acc_prune
-```
-
-We see that the performance on training set is slightly better than testing set, which makes sense. Overall, the model performance is good.
-In the following part, we are going to use another model - K-nearest Neighbour model. Then we will compare the performance of two models to see which model performs better in terms of classfiying the Control type.
+*Rule 1 (38% of all instituions):*
 
 
+If an school has Percentage of students who are financially independent >= 0.59, average net price for TITLE IV institutions of both public and private >= 10752.5, Median family income in real 2015 dollars < 24511.41, then this school is classified as the control type of **Private For-profit**. This is the typical profile of private for-profit schools.
 
+
+*Rule 2 (7% of all institutions):*
+
+
+if an school has Percentage of students who are financially independent < 0.59, average net price for TITLE IV institutions of both public and private >=14558, Percentage of students submitting 2 or more than 2 applications < 0.49, then this school is classified as the control type of **Private For-profit**.
+
+
+*Rule 3 (4% of all institutions):*
+
+if an school has Percentage of students who are financially independent < 0.59, average net price for TITLE IV institutions of both public and private < 14558, Median income ten years after entry < 24350, then this school is classified as the control type of **Private For-profit**.
+
+        
+*Rule 4 (2% of all institutions):* 
+
+If an school has Percentage of students who are financially independent >= 0.59, average net price for TITLE IV institutions of both public and private >=10752.5, Median income ten years after entry < 21400, then this school is classified as the control type of **Private For-profit**.
+
+
+**For private non-profit schools:**
+
+*Rule 5 (19% of all institutions):* 
+
+if an school has  Percentage of students who are financially independent < 0.59, average net price for TITLE IV institutions of both public and private >=14558, Percentage of students submitting 2 or more than 2 applications >= 0.49, then this school is classified as the control type of **Private Non-profit**. This is the typical profile of private non-profit schools
+
+*Rule 6 (3% of all institutions):* 
+
+if an school has  Percentage of students who are financially independent >= 0.59, average net price for TITLE IV institutions of both public and private >= 10752.5, Median family income in real 2015 dollars >= 24511.41, then this school is classified as the control type of **Private Non-profit**          
+
+
+**For public schools:**
+
+
+*Rule 7 (24% of all institutions):*
+
+if an school has  Percentage of students who are financially independent < 0.59, average net price for TITLE IV institutions of both public and private < 14558, Median income ten years after entry >= 24350, then this school is classified as the control type of **Public**. This is the typical profile of public schools.
+
+*Rule 8 (4% of all institutions):* 
+
+if an school has  Percentage of students who are financially independent >= 0.59, average net price for TITLE IV institutions of both public and private < 10752.5, Median family income in real 2015 dollars >= 24511.41,then this school is classified as the control type of **Public**  
+
+
+In the following part, we used another algorithm - K-nearest Neighbor to classify a school's control type. Then we compared the performance of two final models to compare which model performs better in terms of classification ability.
 
 
 # 4. k-Nearest Neighbour Classification<a id="4"></a>
 
-First of all, we read the training and testing data we create in last part.
+First of all, we imported the training and testing data we created in the 1st part, and removed the unnecessary column from the data set. 
 
 ```{r}
+#training
 data_k_d= read.csv("Data_training.csv",
-                   header = TRUE, na.strings = 'NA')#includes the row.names, just for testing
-data_k_d2 = read.csv("Data_testing.csv",
                    header = TRUE, na.strings = 'NA')
-
-str(data_k_d2 )
-str(data_k_d)
-```
-
-After taking a look at the data, we notice that first column is useless so we remove it.
-
-```{r}
 data_training_k <- data.frame(data_k_d[,-1])
 
+#testing 
+data_k_d2 = read.csv("Data_testing.csv",
+                   header = TRUE, na.strings = 'NA')
 data_testing_k = data.frame(data_k_d2[,-1])
 ```
 
-Then we would like to encode numerical variables into dummies since we need calculate distance between each pair of instances when using KNN. In order to calculate the distance, we need all variables to be numerical. We create a function to automate the entire preparation process. The function encodes the Predominant Degree into dummies, renames the new columns and finally drop the original Prefominat Degree variables.
+Accordingly, ```data_training_k``` and ```data_testing_k``` are the resulting data sets. 
 
+
+Then we encoded the factor variables into dummy variables to calculate the distance metrics between each pair of instances when implementing KNN. In our data set, only one factor variable ```PREDDEG_factor``` (Predominant Degree) needs to be converted. We created a function ```convertNum()``` to automate the entire conversion process. 
 
 ```{r}
 convertNum = function(mydata) {
@@ -308,21 +368,21 @@ convertNum = function(mydata) {
 }
 ```
 
-After the function is created, we apply the function to training and testing data to perform data transformation.
+The function encodes the factor variable ```PREDDEG_factor``` into dummies, renames the new columns and drops the original factor variable after the new data set is integrated. 
+
+
+Then we applied the function to the training and testing data to perform data transformation.
 
 ```{r}
-
 data_knn_training = convertNum(data_k_d)
 data_knn_testing = convertNum(data_k_d2)
+
 ```
 
-Notice that the Predominat Degree variable in testing data doesn't have a NotClasified level, so we want to add this columns and set all cells to zero so that the model built on training data can be applied on testing data diretly later.
+```data_knn_training``` and ```data_knn_testing ``` are the resulting data sets. 
 
-```{r} 
-data_knn_testing$NotClassified  =0
-```
 
-Next, we use KNN algorithm to build a model. We set kmax = 9 so the number of nearest neighbor from 1 to 9 will be considered. We also would like to find out which kernal is the best among ```triangular```,```rectangular```,```epanechnikov```,```optimal```.    
+Next, we used KNN algorithm to build a KNN model. ```train.kknn``` performs leave-one-out cross validation and is computationally very efficient. We set kmax = 9 so the number of nearest neighbor from 1 to 9 will be considered. The ```train.kknn``` function is also able to find out the best kernal among ```triangular```,```rectangular```,```epanechnikov``` and ```optimal```. We set ```scale``` to TRUE to ensure every variable receives an equal weight. With the ```plot``` function, we can get a plot to show the performance of model with each kernel for different k values. 
 
 ```{r}
 model <- train.kknn(Control_factor ~ ., 
@@ -331,22 +391,15 @@ model <- train.kknn(Control_factor ~ .,
                     scale = TRUE,
                     kernel = c("triangular", "rectangular", "epanechnikov", "optimal"))
 
-model
-```
-
-From the result we see that when we choose k=4, the model generates the best result - 7.5% misclassification rate. Also, the best kernel is rectangular kernel.
-
-Then we create a plot to show the performance of model with each kernel for different k values. 
-
-```{r}
 plot(model)
-
-prediction <- predict(model, data_knn_testing[, -1])
+model #display the summary
 ```
 
-The red triangle indicates the best result and we also see that a optimal kernel with k = 5,6,8 also produce good results.
+From the result we see that the when k=4, the model generates the best result - 7.5% classifications rate. Also, the best kernel is **rectangular kernel**, which is also can be concluded from the plot. Moreover, the plot also indicates that an optimal kernel with k = 5,6,8 can also generate a model with low misclassification rates. 
 
-After the model is built, we need to evaluate how the model performs on both training and testing data.
+
+
+After the model is built, we need to evaluate how the model performs on both training and testing data. With the ```confusionMatrix``` function, we can get the confusion matrix for classification and the model performance for each class.
 
 ```{r}
 #training error
@@ -354,29 +407,35 @@ prediction_training <- predict(model, data_knn_training[, -1])
 confusionMatrix(reference=data_knn_training[, 1], data=prediction_training )
 ```
 
-```confusionMatrix```shows the confusion matrix for classification and the model performance for each class. The overall accuracy of the model is 95%, which indicates a very good performance. Looking at each class, we can also tell the model performance on each class is also desirable while the sensitivity is slighly lower. A lower sensitivity rate suggests that the model is relative worse at identifying TRUE private non-profit schools.
+The overall accuracy of the model is 95%, which indicates that the model has a very good performance on the training data set. Looking at the Sensitivity and Specificity for each class, we can also tell the model has a good prediction power given the high Sensitivity value and high Specificity value. 
 
-Then we evaluate the model on testing data.
+
+Then we predict the model on the testing data set. 
 
 ```{r}
-confusionMatrix(reference=data_knn_testing[, 1], data=prediction)
+#testing
+prediction_testing  <- predict(model, data_knn_testing[, -1])
+confusionMatrix(reference=data_knn_testing[, 1], data=prediction_testing)
 ```
 
-We see that the overall accuracy of the model on testing set is 92%, slighly worse than on the training set. Looking at each class, we also see the sensitivity rate for private non-profit schools is worse than other metrics, which suggests that we may want to collect some new features that can help identify the TRUE private non-profit schools.
+We see that the overall accuracy of the model on testing set is 92%, slightly lower than on the training data set.
+The Sensitivity and Specificity for each class is lower than training data set, but is still falling into an acceptable range. As a conclusion, the KNN final model performs well on both training and testing data. 
 
 
-#5 Conclusion]<a id="conclusion"></a>
+# 5. Conclusions <a id="conclusion"></a>
 
-In the above analysis, we use Decision Tree Model and K-nearest Neighbour Model to classify the Control variables. Two models we build both have a very good performance, which suggests that the available features are able to distinguish one type of school of each other very effectively.
+In the above analysis, we used Decision Tree model and K-nearest Neighbor model to classify the Control Type (```control_factor```) variable. 
 
-Two models have their own strengths and weakness. Decision Tree Model is very easy to interprete. From the tree plot we created, we know that .......... are important factors to classify Control type.
+The decision tree model gives an accuracy score of 0.8602 on the training data set and an accuracy score of 0.8464 on the testing data set while the KNN model gives an accuracy score of 0.95 on the training data set and an accuracy score of 0.92 on the testing data set.  Overally speaking, KNN model yields a better accuracy than we achieved with the tree-based model, but the two final models both have a very good performance, which suggests that the existing features are able to distinguish one type of school from another very effectively.
 
-On the other hand, Decision Tree model performances less well than KNN model. Therefore, it's better to use KNN model for the purpose of prediction.
+Two models have their own strengths and weakness. Decision tree is one of the "Eager Learners", which are designed to learn a model that maps the input attributes as soon as the training data set is available: they first build a classification model on the training data set before being able to actually classify an unseen observation from test data set. KNN is one of the "Lazy Learners", the classifier delays the process of modeling the training data set until it is needed to classify the test examples: it does not build any classification model. It directly learns from the training observations and starts processing data only after it is given a test observation to classify. 
 
-To sum up, we can easily distinguish the profile of institutions of each Control type. For prediction, KNN model is a better choice. For presentation or interpretation, Decision Tree is easier to understand.
+Additionally, Decision Tree is very easy to interpret while KNN outperforms decision tree in terms of the prediction power. Therefore, it's better to use KNN model for prediction rather than classification. 
 
-#6 Future Studies]<a id="futurestudies"></a>
+To sum up, KNN is a better choice when used for prediction while decision tree is easier to understand, especially for interpretation and presentation. 
 
-One question we would like to address in the future is to find a better algorithms to perform parameters tunning. There are many parameters for Decision Tree Model and the Grid Search algorithm in ```caret``` can only allow us to tune  ```cp``` parameter. In Python Grid Search allows us to test a combination of many parameters of the Decision Tree model at the same time, so it would be greate if we can find a counterpart in R.
+# 6. Future Studies <a id="futurestudies"></a>
 
-Also, we would like to try out other model including Random Forest Tree, Neural Network, Support Vector Machine, etc to see if any other model performs better than two models we built in this analysis. 
+One question we would like to address in the future is to find a better algorithm to perform parameters tuning. Although there are many tunable parameters in decision tree analysis, the Grid Search algorithm in ```caret``` package can only allow us to tune  the ```cp``` parameter. In Python, Grid Search allows us to test a combination of many parameters at the same time when building the decision tree, thus it would be helpful if we can find a counterpart in R.
+
+Additionally, other classification algorithms like **Random Forest**, **Neural Network** and **Support Vector Machine** are also worth trying, which allows us to explore other potential models with better performances.
