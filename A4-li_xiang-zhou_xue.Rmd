@@ -1,8 +1,10 @@
 ---
 title: "MA710 Assignment4 - Decision Tree Classification and K-nearest Neighbors Classification"
 author: "Xiang Li, Xue Zhou"
-date: "4/24/2017"
-output: html_document
+date: "5/08/2017"
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE, warning=FALSE, message = FALSE, eval=FALSE, echo=FALSE}
@@ -15,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
     * 2.1 [Load the Data](#2.1)
     * 2.2 [Testing and Training Data Set](#2.2)
 * 3 [Decision Tree Classification](#3)
-* 4 [k-Nearest Neighbour Classification](#4)
+* 4 [K-Nearest Neighbour Classification](#4)
 * 5 [Conclusion](#conclusion)
 * 6 [Future Studies](#futurestudies)   
 
@@ -335,7 +337,7 @@ if an school has  Percentage of students who are financially independent >= 0.59
 In the following part, we used another algorithm - K-nearest Neighbor to classify a school's control type. Then we compared the performance of two final models to compare which model performs better in terms of classification ability.
 
 
-# 4. k-Nearest Neighbour Classification<a id="4"></a>
+# 4. K-Nearest Neighbour Classification<a id="4"></a>
 
 First of all, we imported the training and testing data we created in the 1st part, and removed the unnecessary columns from the data sets. 
 

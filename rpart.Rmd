@@ -56,6 +56,7 @@ printcp(fit)
 ```
 The `xerror` column contains the cross-validation error for that split.
 We want the complexity threshold corresponding to the first line with the smallest `xerror` values.
+
 The following command retrieves this value from the table. 
 ```{r}
 bestcp <- fit$cptable[which.min(fit$cptable[,"xerror"]),
