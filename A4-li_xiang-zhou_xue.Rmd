@@ -15,31 +15,11 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
 * 1 [Introduction](#Introduction) 
 * 2 [Data Preparation](#2)
     * 2.1 [Load the Data](#2.1)
-    * 2.2 [Testing and Training Data Set](#2.2)
+    * 2.2 [Split the Data Set into Training and Testing Data Sets](#2.2)
 * 3 [Decision Tree Classification](#3)
 * 4 [K-Nearest Neighbour Classification](#4)
 * 5 [Conclusion](#conclusion)
 * 6 [Future Studies](#futurestudies)   
-
-First we loaded the required packages as the code block below. 
-
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-#desicion tree
-library(rpart)
-library(rpart.plot)
-library(rattle)
-library(RColorBrewer)
-library(party)
-library(partykit)
-library(caret)
-library(dplyr) #missing values
-#knn
-library(kknn)
-library(caret)
-library(e1071)
-options(dplyr.width=Inf) 
-```
-
 
 # 1 Introduction<a id="Introduction"></a>
 
@@ -50,9 +30,29 @@ In this analysis, we are going to use **Decision Tree** model and **K-nearest Ne
 
 Prior to the analysis, we need to prepare the data. Getting a clean data set ready for Decision Tree Modeling and KNN Analysis requires us to remove unnecessary columns, deal with missing values, and split data into training and testing sets.
 
+Below are all the packages required for this research.  
+
+```{r message=FALSE, warning=FALSE}
+#desicion tree
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(RColorBrewer)
+library(party)
+library(partykit)
+library(caret)
+library(dplyr) 
+#knn
+library(kknn)
+library(caret)
+library(e1071)
+options(dplyr.width=Inf) 
+```
+
+
 ## 2.1 Load the dataset<a id="2.1"></a>
 
-We load the data set and take a look at the structure of data.
+We used the ```data_clean``` data set ready in the Assignment 1 as the original data set. With the following code, we loaded the data set and took a look at the data structure.
 
 ```{r}
 data_import = read.csv("data_clean.csv",
@@ -76,7 +76,7 @@ str(data_nomissing)  #4528 * 15
 The new data set ```data_nomissing``` has 4528 rows and 15 variables.
 
 
-## 2.2 Testing and Training<a id="2.2"></a>
+## 2.2 Split the Data Set into Training and Testing Data Sets<a id="2.2"></a>
 
 After obtaining a clean data set, let's split the complete data into training and testing sets. The ratio of training sample size to testing sample size is **2:1**. Also, we exported the training and testing set to two separate csv files for easier access in the future.
 
@@ -280,7 +280,7 @@ print(tree.pruned.limited)
 
 From the plot, we can tell ```DEP_STAT_PCT_IND```(Percentage of students who are financially independent) is the most important variable to predict the control type of a school, ```NPT4_COMBINE```(average net price for TITLE IV institutions of both public and private.), ```MD_FAMINC ```(Median family income in real 2015 dollars), ``` MD_EARN_WNE_P10```(Median income ten years after entry) and ``` APPL_SCH_PCT_GE2 ```(Percentage of students submitting 2 or more than 2 applications) are also the important variables. 
 
-As seen from the plot, in each node shows:
+As seen from the plot, each node shows:
 
  1. The predicted class (Private For-profit, Private Nonprofit and Public) 
  2. The predicted probability of each class
@@ -288,7 +288,7 @@ As seen from the plot, in each node shows:
  
 Below are the 8 rules concluded from the final tree model: 
 
-**For private for-profit schools**
+**1. Private for-profit schools**
 
 *Rule 1 (38% of all instituions):*
 
@@ -312,7 +312,7 @@ If an school has Percentage of students who are financially independent < 0.59, 
 If an school has Percentage of students who are financially independent >= 0.59, average net price for TITLE IV institutions of both public and private >=10752.5, Median income ten years after entry < 21400, then this school is classified as the control type of **Private For-profit**.
 
 
-**For private non-profit schools**
+**2. Private non-profit schools**
 
 *Rule 5 (19% of all institutions):* 
 
@@ -323,7 +323,7 @@ If an school has  Percentage of students who are financially independent < 0.59,
 If an school has  Percentage of students who are financially independent >= 0.59, average net price for TITLE IV institutions of both public and private >= 10752.5, Median family income in real 2015 dollars >= 24511.41, then this school is classified as the control type of **Private Non-profit**          
 
 
-**For public schools**
+**3. Public schools**
 
 *Rule 7 (24% of all institutions):*
 
